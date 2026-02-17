@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-cream text-ink font-body antialiased;
+  }
+  /* Focus visible for accessibility */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-sage;
+  }
+  /* Skip link for screen readers */
+  .skip-link {
+    @apply absolute -top-full left-4 z-50 rounded-2xl bg-sage px-4 py-2 text-cream transition-all focus:top-4 focus:outline-none focus:ring-2 focus:ring-sage;
+  }
+}
+
+@layer components {
+  .page-padding {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
