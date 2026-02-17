@@ -13,7 +13,7 @@ export default function RecipeDetail() {
   if (!recipe) {
     return (
       <PageContainer>
-        <div className="page-content mx-auto max-w-2xl">
+        <div className="page-content">
           <div className="card rounded-3xl p-12 text-center">
             <p className="text-ink-muted leading-relaxed">Recipe not found.</p>
             <Link to="/recipes" className="btn-primary mt-6 inline-block">
@@ -27,7 +27,7 @@ export default function RecipeDetail() {
 
   return (
     <PageContainer>
-      <div className="page-content mx-auto max-w-2xl min-w-0">
+      <div className="page-content">
         <Link
           to="/recipes"
           className="mb-6 inline-block text-sm font-medium text-ink-muted transition-colors hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded-full"

@@ -14,7 +14,7 @@ const accentText = { sage: 'text-sage-dark', amber: 'text-amber-dark', tomato: '
 export default function Analytics() {
   return (
     <PageContainer>
-      <div className="page-content mx-auto max-w-4xl min-w-0">
+      <div className="page-content">
         <SectionHeader
           title="Analytics"
           subtitle="Your impact at a glance"

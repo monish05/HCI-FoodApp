@@ -45,7 +45,7 @@ export default function MyFridge() {
 
   return (
     <PageContainer>
-      <div className="page-content mx-auto max-w-3xl">
+      <div className="page-content">
         <SectionHeader
           title="My Fridge"
           subtitle="Your ingredient inventory"

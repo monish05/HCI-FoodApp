@@ -17,7 +17,7 @@ export default function ShoppingList() {
 
   return (
     <PageContainer>
-      <div className="page-content mx-auto max-w-2xl min-w-0">
+      <div className="page-content">
         <SectionHeader
           title="Shopping list"
           subtitle="Check off as you shop"

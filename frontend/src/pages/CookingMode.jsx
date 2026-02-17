@@ -10,7 +10,7 @@ export default function CookingMode() {
 
   return (
     <PageContainer className="flex flex-col items-center justify-center">
-      <div className="page-content w-full max-w-2xl min-w-0">
+      <div className="page-content">
         <p className="mb-4 text-center text-sm font-medium text-ink-muted" aria-live="polite">
           Step {step + 1} of {total}
         </p>
