@@ -1,3 +1,12 @@
+---
+title: HCI-FoodApp
+emoji: 🍳
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+---
+
 # Fridge-to-Table
 
 A minimalistic, responsive multi-page web app for reducing food waste and planning meals. HCI project — focused on usability, accessibility, and clarity.
@@ -19,11 +28,40 @@ A minimalistic, responsive multi-page web app for reducing food waste and planni
 ## Run locally
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
+
+## Build
+
+```bash
+cd frontend
+npm run build
+npm run preview
+```
+
+## Deploy on Hugging Face
+
+The repo includes a **Dockerfile** and **GitHub Action** so every push to `main` updates your [Hugging Face Space](https://huggingface.co/docs/hub/spaces-sdks-docker).
+
+### One-time setup
+
+1. **Create a Docker Space** on [huggingface.co/new-space](https://huggingface.co/new-space): choose **Docker** as the SDK (or use existing **monish563/HCI-FoodAppDemo**).
+2. **GitHub repo → Settings → Secrets and variables → Actions:** add secret **`HF_TOKEN`** = a [Hugging Face token](https://huggingface.co/settings/tokens) with **write** access. The workflow deploys to **monish563/HCI-FoodAppDemo**.
+
+After that, every **push to `main`** runs the workflow and pushes this repo to your Space; Hugging Face rebuilds the Docker image and redeploys.
+
+### Run the image locally
+
+```bash
+docker build -t hci-foodapp .
+docker run -p 7860:7860 hci-foodapp
+```
+
+Open [http://localhost:7860](http://localhost:7860).
 
 ## Pages
 
@@ -35,9 +73,24 @@ Open [http://localhost:5173](http://localhost:5173).
 6. **Shopping List** — Categorized list with checkboxes
 7. **Analytics** — Money saved, food saved, waste reduction %
 
-## Build
+## Project structure
 
-```bash
-npm run build
-npm run preview
 ```
+frontend/
+  index.html
+  package.json
+  vite.config.js
+  tailwind.config.js
+  postcss.config.js
+  src/
+    App.jsx
+    main.jsx
+    index.css
+    components/
+    pages/
+    data/
+```
+
+## License
+
+MIT (or as required by your course).

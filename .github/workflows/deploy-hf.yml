@@ -1,0 +1,23 @@
+# Push to Hugging Face Space on every push to main (rebuilds the Space)
+name: Deploy to Hugging Face
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so HF accepts the push (no "shallow update not allowed")
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_SPACE: monish563/HCI-FoodAppDemo
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add hf "https://${HF_SPACE%%/*}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" 2>/dev/null || git remote set-url hf "https://${HF_SPACE%%/*}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}"
+          GIT_LFS_SKIP_SMUDGE=1 git push hf main --force
