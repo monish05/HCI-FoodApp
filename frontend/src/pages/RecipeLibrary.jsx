@@ -27,25 +27,24 @@ export default function RecipeLibrary() {
 
   return (
     <PageContainer>
-      <div className="mx-auto max-w-6xl">
+      <div className="page-content">
         <SectionHeader
           title="Recipe library"
           subtitle="Search and filter recipes"
         />
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <label htmlFor="recipe-search" className="sr-only">
-            Search recipes
-          </label>
+
+        <div className="card mb-8 rounded-3xl p-6 sm:p-8">
           <input
             id="recipe-search"
             type="search"
             placeholder="Search recipes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="min-h-12 w-full flex-1 rounded-2xl border border-cream-300 bg-white px-4 shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/20"
+            className="input mb-6 w-full"
             aria-label="Search recipes"
           />
-          <div className="flex flex-wrap gap-2">
+          <p className="mb-3 text-sm font-medium text-ink-muted">Filter by tag</p>
+          <div className="flex flex-wrap gap-3">
             {ALL_TAGS.map((tag) => (
               <FilterPill
                 key={tag}
@@ -58,21 +57,21 @@ export default function RecipeLibrary() {
         </div>
 
         {filtered.length > 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
             {filtered.map((recipe) => (
               <RecipeCard key={recipe.id} recipe={recipe} />
             ))}
           </div>
         ) : (
-          <div className="rounded-3xl bg-white p-12 text-center shadow-soft">
-            <p className="text-ink-muted">No recipes match your search or filter.</p>
+          <div className="card rounded-3xl p-12 text-center sm:p-16">
+            <p className="text-5xl sm:text-6xl" aria-hidden>🔍</p>
+            <p className="mt-6 text-base text-ink-muted leading-relaxed">
+              No recipes match your search or filter.
+            </p>
             <button
               type="button"
-              onClick={() => {
-                setSearch('')
-                setActiveTag(null)
-              }}
-              className="mt-3 text-sage font-medium hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
+              onClick={() => { setSearch(''); setActiveTag(null) }}
+              className="btn-primary mt-6"
             >
               Clear filters
             </button>

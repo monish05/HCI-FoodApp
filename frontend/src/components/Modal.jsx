@@ -22,19 +22,19 @@ export default function Modal({ isOpen, onClose, title, children }) {
       aria-labelledby="modal-title"
     >
       <div
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-ink/30 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-3xl bg-cream p-4 shadow-soft-lg transition-opacity duration-200 safe-left safe-right sm:p-6">
-        <div className="mb-4 flex shrink-0 items-center justify-between gap-2">
-          <h2 id="modal-title" className="truncate text-lg font-semibold text-ink sm:text-xl">
+      <div className="relative flex max-h-[85vh] w-full max-w-md flex-col rounded-3xl bg-white p-6 shadow-soft-xl transition-opacity duration-200 safe-left safe-right sm:p-8">
+        <div className="mb-6 flex shrink-0 items-center justify-between gap-4">
+          <h2 id="modal-title" className="truncate text-xl font-semibold text-ink">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="touch-target shrink-0 rounded-full p-2 text-ink-muted transition-colors hover:bg-cream-200 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-cream-200 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
             aria-label="Close modal"
           >
             <span className="text-xl leading-none" aria-hidden>×</span>

@@ -1,10 +1,13 @@
-// Mock data for Fridge-to-Table — no backend
+// Mock data for Fridge to Feast — no backend
+// Recipe images: Unsplash (https://unsplash.com) — free to use
+
+const U = (id, w = 600) => `https://images.unsplash.com/photo-${id}?w=${w}&q=80&fit=crop`
 
 export const recipes = [
   {
     id: '1',
     title: 'Creamy Tomato & Basil Pasta',
-    image: null,
+    image: U('1551183053-bf91a1d81141'),
     tags: ['Quick', 'Meatless'],
     cookTime: 20,
     useUpSoon: ['tomatoes', 'basil', 'cream'],
@@ -12,7 +15,7 @@ export const recipes = [
   {
     id: '2',
     title: 'Roasted Veggie Bowl',
-    image: null,
+    image: U('1546069901-ba9599a7e63c'),
     tags: ['Meatless', 'High Protein'],
     cookTime: 35,
     useUpSoon: ['bell pepper', 'zucchini', 'chickpeas'],
@@ -20,7 +23,7 @@ export const recipes = [
   {
     id: '3',
     title: 'Honey Garlic Salmon',
-    image: null,
+    image: U('1467003909585-2f8a72700288'),
     tags: ['Quick', 'High Protein'],
     cookTime: 25,
     useUpSoon: ['salmon', 'garlic'],
@@ -28,7 +31,7 @@ export const recipes = [
   {
     id: '4',
     title: 'Lentil Soup',
-    image: null,
+    image: U('1547592166-23ac45744acd'),
     tags: ['Meatless', 'Quick'],
     cookTime: 40,
     useUpSoon: ['lentils', 'carrots', 'celery'],
@@ -36,7 +39,7 @@ export const recipes = [
   {
     id: '5',
     title: 'Stir-Fry with Tofu',
-    image: null,
+    image: U('1603133872878-684f208fb84b'),
     tags: ['Meatless', 'High Protein', 'Quick'],
     cookTime: 25,
     useUpSoon: ['tofu', 'broccoli', 'soy sauce'],
@@ -44,7 +47,7 @@ export const recipes = [
   {
     id: '6',
     title: 'Caprese Salad',
-    image: null,
+    image: U('1608897013039-887f21d8c804'),
     tags: ['Quick', 'Meatless'],
     cookTime: 10,
     useUpSoon: ['tomatoes', 'mozzarella', 'basil'],
@@ -52,7 +55,7 @@ export const recipes = [
   {
     id: '7',
     title: 'Chicken & Veggie Skillet',
-    image: null,
+    image: U('1598103442097-8b74394b95c6'),
     tags: ['High Protein', 'Quick'],
     cookTime: 30,
     useUpSoon: ['chicken', 'bell pepper', 'onion'],
@@ -60,24 +63,44 @@ export const recipes = [
   {
     id: '8',
     title: 'Oatmeal with Berries',
-    image: null,
+    image: U('1512621776951-a57141f2eefd'),
     tags: ['Quick', 'Meatless'],
     cookTime: 10,
     useUpSoon: ['oats', 'berries', 'milk'],
   },
 ]
 
+// Common units for fridge items (amount + unit)
+export const FRIDGE_UNITS = [
+  { value: 'count', label: 'count' },
+  { value: 'dozen', label: 'dozen' },
+  { value: 'lb', label: 'lb' },
+  { value: 'oz', label: 'oz' },
+  { value: 'kg', label: 'kg' },
+  { value: 'g', label: 'g' },
+  { value: 'L', label: 'L' },
+  { value: 'ml', label: 'ml' },
+  { value: 'cups', label: 'cups' },
+  { value: 'bunch', label: 'bunch' },
+  { value: 'clove', label: 'clove(s)' },
+  { value: 'head', label: 'head' },
+  { value: 'block', label: 'block' },
+  { value: 'slice', label: 'slice(s)' },
+  { value: 'container', label: 'container' },
+  { value: 'pack', label: 'pack' },
+]
+
 export const fridgeItems = [
-  { id: 'f1', name: 'Tomatoes', quantity: '4', daysLeft: 2 },
-  { id: 'f2', name: 'Milk', quantity: '1 L', daysLeft: 1 },
-  { id: 'f3', name: 'Chicken breast', quantity: '2', daysLeft: 4 },
-  { id: 'f4', name: 'Bell pepper', quantity: '3', daysLeft: 5 },
-  { id: 'f5', name: 'Yogurt', quantity: '2 cups', daysLeft: 6 },
-  { id: 'f6', name: 'Basil', quantity: '1 bunch', daysLeft: 1 },
-  { id: 'f7', name: 'Zucchini', quantity: '2', daysLeft: 7 },
-  { id: 'f8', name: 'Eggs', quantity: '6', daysLeft: 10 },
-  { id: 'f9', name: 'Carrots', quantity: '5', daysLeft: 8 },
-  { id: 'f10', name: 'Cheddar', quantity: '1 block', daysLeft: 3 },
+  { id: 'f1', name: 'Tomatoes', amount: 4, unit: 'count', daysLeft: 2 },
+  { id: 'f2', name: 'Milk', amount: 1, unit: 'L', daysLeft: 1 },
+  { id: 'f3', name: 'Chicken breast', amount: 2, unit: 'lb', daysLeft: 4 },
+  { id: 'f4', name: 'Bell pepper', amount: 3, unit: 'count', daysLeft: 5 },
+  { id: 'f5', name: 'Yogurt', amount: 2, unit: 'cups', daysLeft: 6 },
+  { id: 'f6', name: 'Basil', amount: 1, unit: 'bunch', daysLeft: 1 },
+  { id: 'f7', name: 'Zucchini', amount: 2, unit: 'count', daysLeft: 7 },
+  { id: 'f8', name: 'Eggs', amount: 1, unit: 'dozen', daysLeft: 10 },
+  { id: 'f9', name: 'Carrots', amount: 1, unit: 'lb', daysLeft: 8 },
+  { id: 'f10', name: 'Cheddar', amount: 1, unit: 'block', daysLeft: 3 },
 ]
 
 export const mealPlanSlots = [

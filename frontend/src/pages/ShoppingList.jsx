@@ -17,27 +17,27 @@ export default function ShoppingList() {
 
   return (
     <PageContainer>
-      <div className="mx-auto max-w-2xl">
+      <div className="page-content mx-auto max-w-2xl min-w-0">
         <SectionHeader
           title="Shopping list"
           subtitle="Check off as you shop"
         />
-        <div className="space-y-8">
+        <div className="space-y-8 sm:space-y-10">
           {Object.entries(categories).map(([catName, items]) => (
             <section key={catName}>
-              <h3 className="mb-3 text-lg font-semibold text-ink">{catName}</h3>
-              <ul className="space-y-2">
+              <h3 className="mb-4 text-lg font-bold text-ink sm:text-xl">{catName}</h3>
+              <ul className="space-y-3">
                 {items.map((item) => (
                   <li key={item.id}>
-                    <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl bg-white px-3 shadow-soft transition-shadow hover:shadow-soft-lg focus-within:ring-2 focus-within:ring-sage focus-within:ring-offset-2 sm:gap-4 sm:px-4">
+                    <label className="card card-lift flex min-h-14 cursor-pointer items-center gap-4 rounded-3xl p-5 transition-all duration-200 focus-within:ring-2 focus-within:ring-sage focus-within:ring-offset-2 sm:p-6">
                       <input
                         type="checkbox"
                         checked={item.checked}
                         onChange={() => toggle(catName, item.id)}
-                        className="h-5 w-5 rounded border-cream-300 text-sage focus:ring-sage"
+                        className="h-5 w-5 shrink-0 rounded-full border-cream-300 text-sage focus:ring-sage focus:ring-offset-2"
                       />
                       <span
-                        className={`flex-1 font-medium ${
+                        className={`min-w-0 flex-1 truncate text-base font-medium leading-relaxed ${
                           item.checked ? 'text-ink-muted line-through' : 'text-ink'
                         }`}
                       >

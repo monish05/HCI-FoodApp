@@ -5,51 +5,79 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    min-height: 100%;
   }
   body {
-    @apply bg-cream text-ink font-body antialiased overflow-x-hidden;
+    @apply min-w-0 bg-cream font-body antialiased overflow-x-hidden text-ink;
+    font-size: 16px;
+    min-height: 100%;
+    line-height: 1.6;
   }
-  /* Safe area for notched devices (e.g. iPhone) */
-  .safe-top {
-    padding-top: env(safe-area-inset-top, 0);
+  #root {
+    min-height: 100%;
   }
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0);
-  }
-  .safe-left {
-    padding-left: env(safe-area-inset-left, 0);
-  }
-  .safe-right {
-    padding-right: env(safe-area-inset-right, 0);
-  }
-  /* Focus visible for accessibility */
+  .safe-top { padding-top: env(safe-area-inset-top, 0); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+  .safe-left { padding-left: env(safe-area-inset-left, 0); }
+  .safe-right { padding-right: env(safe-area-inset-right, 0); }
   *:focus-visible {
     @apply outline-2 outline-offset-2 outline-sage;
   }
-  /* Skip link for screen readers */
   .skip-link {
-    @apply absolute -top-full left-4 z-50 rounded-2xl bg-sage px-4 py-2 text-cream transition-all focus:top-4 focus:outline-none focus:ring-2 focus:ring-sage;
+    @apply absolute -top-full left-6 z-50 rounded-full bg-sage px-4 py-2.5 text-sm font-medium text-white transition-all focus:top-4 focus:outline-none focus:ring-2 focus:ring-sage;
   }
 }
 
 @layer components {
   .page-padding {
-    @apply px-4 sm:px-6 lg:px-8;
+    @apply px-4 xs:px-5 sm:px-6 lg:px-8;
   }
   .page-padding-safe {
-    padding-left: max(1rem, env(safe-area-inset-left));
-    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
   }
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  /* Touch-friendly minimum tap target */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Premium card — no heavy borders, soft elevation */
+  .card {
+    @apply rounded-3xl bg-white shadow-card transition-all duration-200 ease-out;
+  }
+  .card-hover:hover {
+    box-shadow: 0 12px 40px rgba(30, 30, 30, 0.1);
+    @apply transition-all duration-200 ease-out;
+  }
+  .card-lift {
+    @apply transition-all duration-200 ease-out;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(30, 30, 30, 0.1);
+  }
+
+  .input {
+    @apply min-h-12 w-full rounded-2xl bg-white px-5 text-base text-ink shadow-soft placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-sage/30 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-sage px-6 text-base font-semibold text-white shadow-soft transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:shadow-soft-lg active:scale-95;
+  }
+  .btn-primary:hover {
+    @apply bg-sage-dark;
+  }
+
+  .btn-secondary {
+    @apply inline-flex min-h-12 items-center justify-center rounded-full bg-white px-6 text-base font-semibold text-ink shadow-soft transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:shadow-soft-lg hover:bg-cream-100 active:scale-95;
+  }
+
+  .page-content {
+    @apply mx-auto w-full min-w-0 max-w-6xl px-4 xs:px-5 sm:px-6;
   }
 }

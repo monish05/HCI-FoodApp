@@ -2,41 +2,45 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx,css}",
   ],
   theme: {
     extend: {
+      screens: {
+        xs: '400px',
+      },
       colors: {
+        /* Warm cream background */
         cream: {
-          DEFAULT: '#FDF8F3',
-          50: '#FFFCF9',
-          100: '#FDF8F3',
-          200: '#F9F0E6',
-          300: '#F0E4D4',
+          DEFAULT: '#F9F7F2',
+          50: '#FDFCF9',
+          100: '#F9F7F2',
+          200: '#F3F0E8',
+          300: '#E8E4DA',
         },
+        /* Sage green — fresh / positive */
         sage: {
-          DEFAULT: '#87A878',
-          light: '#A8C49A',
-          dark: '#6B8E5D',
+          DEFAULT: '#6BAF92',
+          light: '#8BC4A8',
+          dark: '#559278',
         },
+        /* Tomato red — expiring / urgent */
         tomato: {
-          DEFAULT: '#E07A5F',
-          light: '#E89A85',
-          dark: '#C45D42',
+          DEFAULT: '#E4572E',
+          light: '#EA7A5A',
+          dark: '#C94A24',
         },
-        carrot: {
-          DEFAULT: '#E8A75B',
-          light: '#F0C078',
-          dark: '#D4913D',
-        },
+        /* Soft amber — warning / medium */
         amber: {
-          soft: '#E8C547',
-          warm: '#D4A84B',
+          DEFAULT: '#F4A261',
+          light: '#F7B882',
+          dark: '#E08E4A',
         },
+        /* Text */
         ink: {
-          DEFAULT: '#2D3142',
-          light: '#4F5466',
-          muted: '#6B7280',
+          DEFAULT: '#1E1E1E',
+          light: '#4A4A4A',
+          muted: '#6B6B6B',
         },
       },
       fontFamily: {
@@ -49,12 +53,18 @@ export default {
         '4xl': '2rem',
       },
       boxShadow: {
-        soft: '0 2px 12px rgba(45, 49, 66, 0.06)',
-        'soft-lg': '0 8px 24px rgba(45, 49, 66, 0.08)',
-        warm: '0 4px 20px rgba(232, 167, 91, 0.12)',
+        soft: '0 2px 16px rgba(30, 30, 30, 0.06)',
+        'soft-lg': '0 8px 32px rgba(30, 30, 30, 0.08)',
+        'soft-xl': '0 16px 48px rgba(30, 30, 30, 0.1)',
+        card: '0 4px 24px rgba(30, 30, 30, 0.06)',
+        'card-hover': '0 12px 40px rgba(30, 30, 30, 0.1)',
       },
       transitionDuration: {
         200: '200ms',
+        300: '300ms',
+      },
+      transitionTimingFunction: {
+        'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
     },
   },
