@@ -32,7 +32,7 @@ export default function RecipeLibrary() {
           title="Recipe library"
           subtitle="Search and filter recipes"
         />
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <label htmlFor="recipe-search" className="sr-only">
             Search recipes
           </label>
@@ -42,7 +42,7 @@ export default function RecipeLibrary() {
             placeholder="Search recipes..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="min-h-12 flex-1 rounded-2xl border border-cream-300 bg-white px-4 shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/20"
+            className="min-h-12 w-full flex-1 rounded-2xl border border-cream-300 bg-white px-4 shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/20"
             aria-label="Search recipes"
           />
           <div className="flex flex-wrap gap-2">

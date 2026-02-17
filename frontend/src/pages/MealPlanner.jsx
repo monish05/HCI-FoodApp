@@ -74,10 +74,10 @@ export default function MealPlanner() {
           ))}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[500px] border-collapse">
+        <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+          <div className="min-w-0 lg:col-span-2">
+            <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+              <table className="w-full min-w-[420px] border-collapse sm:min-w-[500px]">
                 <thead>
                   <tr>
                     <th className="rounded-tl-2xl bg-cream-200/60 p-3 text-left text-sm font-medium text-ink">
@@ -146,12 +146,12 @@ export default function MealPlanner() {
             </div>
           </div>
 
-          <aside className="rounded-2xl bg-cream-200/40 p-4">
+          <aside className="min-w-0 rounded-2xl bg-cream-200/40 p-4">
             <h3 className="mb-3 font-semibold text-ink">Recipes</h3>
             <p className="mb-3 text-sm text-ink-muted">
               Drag a recipe into the grid to plan your week.
             </p>
-            <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto">
+            <div className="flex max-h-[280px] flex-col gap-3 overflow-y-auto sm:max-h-[400px]">
               {filteredRecipes.map((recipe) => (
                 <div
                   key={recipe.id}

@@ -15,7 +15,7 @@ export default function Home() {
           subtitle="Ingredients expiring in 1–2 days"
         />
         {useUpSoonItems.length > 0 ? (
-          <div className="mb-10 flex flex-wrap gap-3">
+          <div className="mb-8 flex flex-wrap gap-2 sm:mb-10 sm:gap-3">
             {useUpSoonItems.map((item) => (
               <span
                 key={item.id}

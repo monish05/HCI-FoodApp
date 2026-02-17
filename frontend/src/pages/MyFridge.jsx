@@ -42,7 +42,7 @@ export default function MyFridge() {
           title="My Fridge"
           subtitle="Your ingredient inventory"
         />
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <label htmlFor="fridge-search" className="sr-only">
             Search ingredients
           </label>
@@ -52,20 +52,20 @@ export default function MyFridge() {
             placeholder="Search ingredients..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="min-h-12 flex-1 rounded-2xl border border-cream-300 bg-white px-4 shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/20"
+            className="min-h-12 w-full flex-1 rounded-2xl border border-cream-300 bg-white px-4 shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/20"
             aria-label="Search ingredients"
           />
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="min-h-12 rounded-2xl bg-sage px-5 font-medium text-white shadow-soft transition-colors hover:bg-sage-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
+              className="min-h-12 flex-1 rounded-2xl bg-sage px-4 font-medium text-white shadow-soft transition-colors hover:bg-sage-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 sm:flex-none sm:px-5"
             >
               Add item
             </button>
             <button
               type="button"
-              className="min-h-12 rounded-2xl bg-cream-200 px-5 font-medium text-ink transition-colors hover:bg-cream-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
+              className="min-h-12 flex-1 rounded-2xl bg-cream-200 px-4 font-medium text-ink transition-colors hover:bg-cream-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 sm:flex-none sm:px-5"
             >
               Upload receipt
             </button>

@@ -7,7 +7,20 @@
     @apply scroll-smooth;
   }
   body {
-    @apply bg-cream text-ink font-body antialiased;
+    @apply bg-cream text-ink font-body antialiased overflow-x-hidden;
+  }
+  /* Safe area for notched devices (e.g. iPhone) */
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .safe-left {
+    padding-left: env(safe-area-inset-left, 0);
+  }
+  .safe-right {
+    padding-right: env(safe-area-inset-right, 0);
   }
   /* Focus visible for accessibility */
   *:focus-visible {
@@ -23,11 +36,20 @@
   .page-padding {
     @apply px-4 sm:px-6 lg:px-8;
   }
+  .page-padding-safe {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+  /* Touch-friendly minimum tap target */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
   }
 }

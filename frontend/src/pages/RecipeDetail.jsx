@@ -29,12 +29,12 @@ export default function RecipeDetail() {
         >
           ← Back to library
         </Link>
-        <div className="rounded-3xl bg-white shadow-soft overflow-hidden">
-          <div className="aspect-[4/3] bg-gradient-to-br from-sage/10 to-carrot/10 flex items-center justify-center text-5xl">
+        <div className="overflow-hidden rounded-3xl bg-white shadow-soft">
+          <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-sage/10 to-carrot/10 text-4xl sm:text-5xl">
             🍽️
           </div>
-          <div className="p-6 sm:p-8">
-            <h1 className="text-2xl font-semibold text-ink sm:text-3xl">{recipe.title}</h1>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <h1 className="text-xl font-semibold leading-tight text-ink sm:text-2xl lg:text-3xl">{recipe.title}</h1>
             <div className="mt-3 flex flex-wrap gap-2">
               {recipe.tags.map((tag) => (
                 <Badge key={tag} variant="sage">{tag}</Badge>

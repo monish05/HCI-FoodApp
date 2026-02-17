@@ -29,7 +29,7 @@ export default function ShoppingList() {
               <ul className="space-y-2">
                 {items.map((item) => (
                   <li key={item.id}>
-                    <label className="flex min-h-14 cursor-pointer items-center gap-4 rounded-2xl bg-white px-4 shadow-soft transition-shadow hover:shadow-soft-lg focus-within:ring-2 focus-within:ring-sage focus-within:ring-offset-2">
+                    <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl bg-white px-3 shadow-soft transition-shadow hover:shadow-soft-lg focus-within:ring-2 focus-within:ring-sage focus-within:ring-offset-2 sm:gap-4 sm:px-4">
                       <input
                         type="checkbox"
                         checked={item.checked}
