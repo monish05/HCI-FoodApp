@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 ---
 
-# Fridge-to-Table
+# Fridge to Feast
 
 A minimalistic, responsive multi-page web app for reducing food waste and planning meals. HCI project — focused on usability, accessibility, and clarity.
 
