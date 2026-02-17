@@ -78,7 +78,9 @@ Open [http://localhost:7860](http://localhost:7860).
 ```
 frontend/
   index.html
+  favicon.svg
   package.json
+  package-lock.json
   vite.config.js
   tailwind.config.js
   postcss.config.js
@@ -87,8 +89,25 @@ frontend/
     main.jsx
     index.css
     components/
+      Navbar.jsx
+      PageContainer.jsx
+      SectionHeader.jsx
+      RecipeCard.jsx
+      IngredientCard.jsx
+      Modal.jsx
+      FilterPill.jsx
+      Badge.jsx
     pages/
+      Home.jsx
+      MyFridge.jsx
+      MealPlanner.jsx
+      RecipeLibrary.jsx
+      RecipeDetail.jsx
+      CookingMode.jsx
+      ShoppingList.jsx
+      Analytics.jsx
     data/
+      mockData.js
 ```
 
 ## License
