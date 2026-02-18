@@ -6,7 +6,6 @@ const navItems = [
   { to: '/fridge', label: 'My Fridge' },
   { to: '/planner', label: 'Planner' },
   { to: '/recipes', label: 'Recipes' },
-  { to: '/cooking', label: 'Cooking' },
   { to: '/shopping', label: 'Shopping' },
   { to: '/analytics', label: 'Analytics' },
 ]
