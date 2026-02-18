@@ -6,14 +6,8 @@ function getExpiryVariant(daysLeft) {
   return 'sage'
 }
 
-function getAvatarStyle(variant) {
-  const styles = {
-    tomato: 'bg-tomato/15 text-tomato-dark',
-    amber: 'bg-amber/20 text-amber-dark',
-    sage: 'bg-sage/15 text-sage-dark',
-  }
-  return styles[variant] || styles.sage
-}
+// Single consistent avatar style for all fridge items
+const AVATAR_STYLE = 'bg-cream-300 text-ink'
 
 function formatQuantity(item) {
   if (item.amount != null && item.unit) {
@@ -36,7 +30,7 @@ export default function IngredientCard({ item, onRemove }) {
   return (
     <article className="card card-lift flex min-w-0 items-center gap-4 rounded-3xl p-5 transition-all duration-200 ease-out sm:gap-5 sm:p-6">
       <div
-        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold sm:h-14 sm:w-14 sm:text-2xl ${getAvatarStyle(variant)}`}
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold sm:h-14 sm:w-14 sm:text-2xl ${AVATAR_STYLE}`}
         aria-hidden
       >
         {initial}

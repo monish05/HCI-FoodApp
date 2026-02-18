@@ -1,19 +1,9 @@
-import { useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
-import { shoppingCategories as initialCategories } from '../data/mockData'
+import { useShopping } from '../context/ShoppingContext'
 
 export default function ShoppingList() {
-  const [categories, setCategories] = useState(initialCategories)
-
-  const toggle = (catKey, id) => {
-    setCategories((prev) => ({
-      ...prev,
-      [catKey]: prev[catKey].map((item) =>
-        item.id === id ? { ...item, checked: !item.checked } : item
-      ),
-    }))
-  }
+  const { categories, toggle } = useShopping()
 
   return (
     <PageContainer>

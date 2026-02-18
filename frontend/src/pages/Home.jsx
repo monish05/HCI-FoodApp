@@ -1,12 +1,15 @@
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
 import RecipeCard from '../components/RecipeCard'
-import { recipes, fridgeItems } from '../data/mockData'
+import { recipes } from '../data/mockData'
+import { useFridge } from '../context/FridgeContext'
 
-const useUpSoonItems = fridgeItems.filter((i) => i.daysLeft <= 2)
 const suggestedRecipes = recipes.filter((r) => r.useUpSoon?.length).slice(0, 6)
 
 export default function Home() {
+  const { items: fridgeItems } = useFridge()
+  const useUpSoonItems = fridgeItems.filter((i) => i.daysLeft <= 2)
+
   return (
     <PageContainer>
       <div className="page-content">

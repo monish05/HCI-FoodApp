@@ -1,4 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
+import { FridgeProvider } from './context/FridgeContext'
+import { ShoppingProvider } from './context/ShoppingContext'
 import Navbar from './components/Navbar'
 import Home from './pages/Home'
 import MyFridge from './pages/MyFridge'
@@ -11,18 +13,20 @@ import Analytics from './pages/Analytics'
 
 export default function App() {
   return (
-    <>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/fridge" element={<MyFridge />} />
-        <Route path="/planner" element={<MealPlanner />} />
-        <Route path="/recipes" element={<RecipeLibrary />} />
-        <Route path="/recipes/:id" element={<RecipeDetail />} />
-        <Route path="/cooking" element={<CookingMode />} />
-        <Route path="/shopping" element={<ShoppingList />} />
-        <Route path="/analytics" element={<Analytics />} />
-      </Routes>
-    </>
+    <FridgeProvider>
+      <ShoppingProvider>
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/fridge" element={<MyFridge />} />
+          <Route path="/planner" element={<MealPlanner />} />
+          <Route path="/recipes" element={<RecipeLibrary />} />
+          <Route path="/recipes/:id" element={<RecipeDetail />} />
+          <Route path="/cooking" element={<CookingMode />} />
+          <Route path="/shopping" element={<ShoppingList />} />
+          <Route path="/analytics" element={<Analytics />} />
+        </Routes>
+      </ShoppingProvider>
+    </FridgeProvider>
   )
 }
