@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
 import RecipeCard from '../components/RecipeCard'
-import Badge from '../components/Badge'
 import FilterPill from '../components/FilterPill'
 import { recipes } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
@@ -183,13 +182,11 @@ export default function Home() {
           {suggestedRecipes.map((recipe) => {
             const { canMake, matchCount, total } = scoreRecipe(recipe, fridgeItems)
             return (
-              <div key={recipe.id} className="relative">
-                {canMake && (
-                  <span className="absolute top-3 right-3 z-10">
-                    <Badge variant="sage">You can make this</Badge>
-                  </span>
-                )}
-                <RecipeCard recipe={recipe} />
+              <div key={recipe.id}>
+                <RecipeCard
+                  recipe={recipe}
+                  badgeLabel={canMake ? 'You can make this' : undefined}
+                />
                 {!canMake && total > 0 && matchCount > 0 && (
                   <p className="mt-2 text-sm text-ink-muted">
                     You have {matchCount}/{total} ingredients

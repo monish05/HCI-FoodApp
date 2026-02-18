@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from './Badge'
 
-export default function RecipeCard({ recipe }) {
+export default function RecipeCard({ recipe, badgeLabel }) {
   const { id, title, tags = [], cookTime, image } = recipe
   const [imgError, setImgError] = useState(false)
   const showImage = image && !imgError
@@ -27,6 +27,11 @@ export default function RecipeCard({ recipe }) {
         )}
       </div>
       <div className="p-6 sm:p-8">
+        {badgeLabel && (
+          <div className="mb-3">
+            <Badge variant="sage">{badgeLabel}</Badge>
+          </div>
+        )}
         <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-ink sm:text-xl">
           {title}
         </h3>
