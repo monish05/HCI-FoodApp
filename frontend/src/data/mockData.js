@@ -90,7 +90,7 @@ export const recipes = [
     image: U('1608897013039-887f21d8c804'),
     tags: ['Quick', 'Meatless'],
     cookTime: 10,
-    useUpSoon: ['lettuce', 'tomatoes', 'onion', 'cheese'],
+    useUpSoon: ['lettuce', 'tomatoes', 'onion', 'mozzarella'],
   },
   {
     id: '12',

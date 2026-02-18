@@ -2,6 +2,7 @@ import { useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
 import FilterPill from '../components/FilterPill'
+import Modal from '../components/Modal'
 import { mealPlanSlots, recipes } from '../data/mockData'
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner']
@@ -12,10 +13,30 @@ export default function MealPlanner() {
   const [activeFilter, setActiveFilter] = useState(null)
   const [draggedRecipe, setDraggedRecipe] = useState(null)
   const [dragTarget, setDragTarget] = useState(null)
+  const [addingSlot, setAddingSlot] = useState(null) // { dayIndex, mealType }
+  const [addModalSearch, setAddModalSearch] = useState('')
 
   const filteredRecipes = activeFilter
-    ? recipes.filter((r) => r.tags.includes(activeFilter))
+    ? recipes.filter((r) => (r.tags || []).includes(activeFilter))
     : recipes
+
+  const assignRecipe = (dayIndex, mealType, recipe) => {
+    setSlots((prev) =>
+      prev.map((day, i) =>
+        i === dayIndex ? { ...day, meals: { ...day.meals, [mealType]: recipe } } : day
+      )
+    )
+    setAddingSlot(null)
+    setAddModalSearch('')
+  }
+
+  const recipesInAddModal = addModalSearch.trim()
+    ? filteredRecipes.filter(
+        (r) =>
+          r.title.toLowerCase().includes(addModalSearch.toLowerCase().trim()) ||
+          (r.tags || []).some((t) => t.toLowerCase().includes(addModalSearch.toLowerCase().trim()))
+      )
+    : filteredRecipes
 
   const handleDragStart = (e, recipe) => {
     setDraggedRecipe(recipe)
@@ -139,7 +160,7 @@ export default function MealPlanner() {
                               onDrop={(e) => handleDrop(e, dayIndex, mealType)}
                             >
                               <div
-                                className={`flex min-h-[76px] flex-col justify-center rounded-2xl p-3 transition-all duration-200 sm:min-h-[84px] ${
+                                className={`flex min-h-[76px] flex-col justify-center gap-2 rounded-2xl p-3 transition-all duration-200 sm:min-h-[84px] ${
                                   isTarget
                                     ? 'bg-sage/10 ring-2 ring-sage/30'
                                     : 'bg-cream-100/60'
@@ -160,7 +181,16 @@ export default function MealPlanner() {
                                     </button>
                                   </div>
                                 ) : (
-                                  <span className="text-center text-xs text-ink-muted">Drop here</span>
+                                  <>
+                                    <span className="text-center text-xs text-ink-muted">Drop here</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setAddingSlot({ dayIndex, mealType })}
+                                      className="rounded-full bg-sage/15 px-3 py-1.5 text-xs font-medium text-sage-dark transition-colors hover:bg-sage/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+                                    >
+                                      + Add
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -175,6 +205,49 @@ export default function MealPlanner() {
             </div>
           </div>
         </div>
+
+        <Modal
+          isOpen={!!addingSlot}
+          onClose={() => { setAddingSlot(null); setAddModalSearch('') }}
+          title={addingSlot ? `Add ${MEAL_TYPES.find((m) => m === addingSlot.mealType)} for ${slots[addingSlot?.dayIndex]?.day}` : 'Add meal'}
+        >
+          <p className="mb-3 text-sm text-ink-muted">Choose what you want to cook:</p>
+          <input
+            type="search"
+            placeholder="Search recipes..."
+            value={addModalSearch}
+            onChange={(e) => setAddModalSearch(e.target.value)}
+            className="input mb-4 w-full"
+            aria-label="Search recipes"
+            autoFocus
+          />
+          <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
+            {recipesInAddModal.map((recipe) => (
+              <li key={recipe.id}>
+                <button
+                  type="button"
+                  onClick={() => addingSlot && assignRecipe(addingSlot.dayIndex, addingSlot.mealType, recipe)}
+                  className="flex w-full items-center gap-4 rounded-2xl bg-cream-100/80 p-4 text-left transition-colors hover:bg-sage/10 hover:shadow-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+                >
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-cream-200">
+                    {recipe.image ? (
+                      <img src={recipe.image} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xl">🍽️</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink">{recipe.title}</p>
+                    <p className="truncate text-sm text-ink-muted">{(recipe.tags || []).join(' · ')}</p>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {recipesInAddModal.length === 0 && (
+            <p className="py-6 text-center text-sm text-ink-muted">No recipes match your search.</p>
+          )}
+        </Modal>
       </div>
     </PageContainer>
   )
