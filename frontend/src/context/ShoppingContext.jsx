@@ -3,6 +3,7 @@ import { shoppingCategories as defaultCategories } from '../data/mockData'
 
 const STORAGE_KEY = 'fridge-to-feast-shopping'
 const FROM_RECEIPT = 'From receipt'
+const FOR_RECIPES = 'For recipes'
 
 function load() {
   try {
@@ -38,26 +39,30 @@ export function ShoppingProvider({ children }) {
     })
   }, [])
 
-  const addItems = useCallback((names) => {
+  const addItemsToCategory = useCallback((categoryKey, names) => {
     const list = names.filter((n) => n?.trim()).map((name, i) => ({
-      id: `receipt-${Date.now()}-${i}`,
+      id: `item-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim(),
       checked: false,
     }))
     if (list.length === 0) return 0
     setCategories((prev) => {
-      const existing = prev[FROM_RECEIPT] || []
+      const existing = prev[categoryKey] || []
       return {
         ...prev,
-        [FROM_RECEIPT]: [...existing, ...list],
+        [categoryKey]: [...existing, ...list],
       }
     })
     return list.length
   }, [])
 
+  const addItems = useCallback((names) => {
+    return addItemsToCategory(FROM_RECEIPT, names)
+  }, [addItemsToCategory])
+
   const value = useMemo(
-    () => ({ categories, setCategories, toggle, addItems }),
-    [categories, toggle, addItems]
+    () => ({ categories, setCategories, toggle, addItems, addItemsToCategory }),
+    [categories, toggle, addItems, addItemsToCategory]
   )
 
   return (

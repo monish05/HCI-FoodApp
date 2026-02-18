@@ -10,9 +10,11 @@ export default function MyFridge() {
   const [search, setSearch] = useState('')
   const [addModalOpen, setAddModalOpen] = useState(false)
 
-  const filtered = items.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase().trim())
-  )
+  const filtered = items
+    .filter((item) =>
+      item.name.toLowerCase().includes(search.toLowerCase().trim())
+    )
+    .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))
 
   const handleRemove = (item) => {
     removeItem(item.id)

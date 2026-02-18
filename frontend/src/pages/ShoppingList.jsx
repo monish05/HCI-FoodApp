@@ -1,9 +1,18 @@
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
 import { useShopping } from '../context/ShoppingContext'
+import { useFridge } from '../context/FridgeContext'
 
 export default function ShoppingList() {
   const { categories, toggle } = useShopping()
+  const { addItem } = useFridge()
+
+  const handleToggle = (catName, item) => {
+    if (!item.checked) {
+      addItem({ name: item.name, amount: 1, unit: 'count', daysLeft: 7 })
+    }
+    toggle(catName, item.id)
+  }
 
   return (
     <PageContainer>
@@ -23,7 +32,7 @@ export default function ShoppingList() {
                       <input
                         type="checkbox"
                         checked={item.checked}
-                        onChange={() => toggle(catName, item.id)}
+                        onChange={() => handleToggle(catName, item)}
                         className="h-5 w-5 shrink-0 rounded-full border-cream-300 text-sage focus:ring-sage focus:ring-offset-2"
                       />
                       <span
