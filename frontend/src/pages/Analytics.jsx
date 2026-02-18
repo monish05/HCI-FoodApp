@@ -106,6 +106,23 @@ export default function Analytics() {
         <p className="mt-6 text-center text-sm text-ink-muted">
           Tip: Plan meals from your fridge first and add items from receipts to keep these numbers growing.
         </p>
+
+        <div className="mt-10 pt-6 border-t border-cream-200 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Clear all saved data? Fridge, shopping list, and recipes will reset to defaults.')) {
+                localStorage.removeItem('fridge-to-feast-fridge')
+                localStorage.removeItem('fridge-to-feast-shopping')
+                localStorage.removeItem('fridge-to-feast-recipes')
+                window.location.reload()
+              }
+            }}
+            className="text-sm font-medium text-ink-muted hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded-full px-4 py-2"
+          >
+            Clear local storage
+          </button>
+        </div>
       </div>
     </PageContainer>
   )
