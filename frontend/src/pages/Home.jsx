@@ -32,6 +32,7 @@ export default function Home() {
     let list = [...recipes]
       .map((r) => ({ recipe: r, ...scoreRecipe(r, fridgeItems) }))
       .filter(({ total }) => total > 0)
+      .filter(({ canMake }) => canMake)
 
     if (tagFilter) {
       list = list.filter(({ recipe }) => (recipe.tags || []).includes(tagFilter))
@@ -44,18 +45,7 @@ export default function Home() {
       }
     }
 
-    list.sort((a, b) => {
-      if (a.canMake && !b.canMake) return -1
-      if (!a.canMake && b.canMake) return 1
-      if (a.canMake && b.canMake) {
-        const byMatch = b.matchCount - a.matchCount
-        if (byMatch !== 0) return byMatch
-        return (a.recipe.cookTime ?? 999) - (b.recipe.cookTime ?? 999)
-      }
-      const byMatch = b.matchCount - a.matchCount
-      if (byMatch !== 0) return byMatch
-      return (a.recipe.cookTime ?? 999) - (b.recipe.cookTime ?? 999)
-    })
+    list.sort((a, b) => (a.recipe.cookTime ?? 999) - (b.recipe.cookTime ?? 999))
 
     return list.map(({ recipe }) => recipe).slice(0, 9)
   }, [fridgeItems, timeFilter, tagFilter])
@@ -110,7 +100,7 @@ export default function Home() {
 
         <SectionHeader
           title="Suggested for you"
-          subtitle={canMakeCount > 0 ? `You can make ${canMakeCount} recipe${canMakeCount !== 1 ? 's' : ''} with what you have — top picks below` : 'Based on your fridge ingredients'}
+          subtitle="Recipes you can cook with what you have"
         />
         <div className="mb-6 flex flex-col gap-4 sm:mb-8">
           <div>
@@ -143,7 +133,9 @@ export default function Home() {
         {suggestedRecipes.length === 0 ? (
           <div className="card rounded-3xl p-10 text-center sm:p-12">
             <p className="text-base text-ink-muted leading-relaxed">
-              No recipes match your filters. Try changing time or type.
+              {canMakeCount === 0
+                ? 'No recipes yet — add more ingredients to your fridge to see suggestions.'
+                : 'No recipes match your filters. Try changing time or type.'}
             </p>
             <button
               type="button"
