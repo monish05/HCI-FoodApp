@@ -5,21 +5,9 @@ import Badge from '../components/Badge'
 import { recipes, recipeSteps } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
 import { useShopping } from '../context/ShoppingContext'
+import { ingredientInFridge, getRecipeIngredients } from '../utils/recipeFridge'
 
 const FOR_RECIPES_CATEGORY = 'For recipes'
-
-function normalize(s) {
-  return (s || '').toLowerCase().trim()
-}
-
-function ingredientInFridge(ingredient, fridgeItems) {
-  const ing = normalize(ingredient)
-  if (!ing) return false
-  return fridgeItems.some((f) => {
-    const name = normalize(f.name)
-    return name.includes(ing) || ing.includes(name)
-  })
-}
 
 export default function RecipeDetail() {
   const { id } = useParams()
@@ -30,10 +18,7 @@ export default function RecipeDetail() {
   const [addedToCart, setAddedToCart] = useState(false)
   const showImage = recipe?.image && !imgError
 
-  const ingredients = useMemo(
-    () => (recipe?.ingredients && recipe.ingredients.length > 0 ? recipe.ingredients : recipe?.useUpSoon) || [],
-    [recipe]
-  )
+  const ingredients = useMemo(() => getRecipeIngredients(recipe), [recipe])
 
   const { inFridge, missing } = useMemo(() => {
     const inFridgeList = ingredients.filter((ing) => ingredientInFridge(ing, fridgeItems))

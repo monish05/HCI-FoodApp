@@ -4,10 +4,13 @@ import SectionHeader from '../components/SectionHeader'
 import RecipeCard from '../components/RecipeCard'
 import FilterPill from '../components/FilterPill'
 import { recipes } from '../data/mockData'
+import { useFridge } from '../context/FridgeContext'
+import { scoreRecipe } from '../utils/recipeFridge'
 
-const ALL_TAGS = [...new Set(recipes.flatMap((r) => r.tags))].sort()
+const ALL_TAGS = [...new Set(recipes.flatMap((r) => r.tags || []))].sort()
 
 export default function RecipeLibrary() {
+  const { items: fridgeItems } = useFridge()
   const [search, setSearch] = useState('')
   const [activeTag, setActiveTag] = useState(null)
 
@@ -18,10 +21,10 @@ export default function RecipeLibrary() {
       list = list.filter(
         (r) =>
           r.title.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
+          (r.tags || []).some((t) => t.toLowerCase().includes(q))
       )
     }
-    if (activeTag) list = list.filter((r) => r.tags.includes(activeTag))
+    if (activeTag) list = list.filter((r) => (r.tags || []).includes(activeTag))
     return list
   }, [search, activeTag])
 
@@ -58,9 +61,23 @@ export default function RecipeLibrary() {
 
         {filtered.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
-            {filtered.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} />
-            ))}
+            {filtered.map((recipe) => {
+              const { canMake, matchCount, total } = scoreRecipe(recipe, fridgeItems)
+              const ingredientStatus = !canMake && total > 0
+                ? matchCount > 0
+                  ? `You have ${matchCount}/${total} ingredients`
+                  : `Needs ${total} ingredients`
+                : undefined
+              return (
+                <div key={recipe.id}>
+                  <RecipeCard
+                    recipe={recipe}
+                    badgeLabel={canMake ? 'You can make this' : undefined}
+                    ingredientStatus={ingredientStatus}
+                  />
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="card rounded-3xl p-12 text-center sm:p-16">

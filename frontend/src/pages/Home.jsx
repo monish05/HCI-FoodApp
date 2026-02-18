@@ -5,6 +5,7 @@ import RecipeCard from '../components/RecipeCard'
 import FilterPill from '../components/FilterPill'
 import { recipes } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
+import { scoreRecipe, getRecipeIngredients, ingredientInFridge } from '../utils/recipeFridge'
 
 const TIME_FILTERS = [
   { value: null, label: 'Any time' },
@@ -20,31 +21,6 @@ const TAG_FILTERS = [
   { value: 'Meatless', label: 'Meatless' },
   { value: 'High Protein', label: 'High protein' },
 ]
-
-function normalize(s) {
-  return (s || '').toLowerCase().trim()
-}
-
-function ingredientInFridge(ingredient, fridgeItems) {
-  const ing = normalize(ingredient)
-  if (!ing) return false
-  return fridgeItems.some((f) => {
-    const name = normalize(f.name)
-    return name.includes(ing) || ing.includes(name)
-  })
-}
-
-function getRecipeIngredients(recipe) {
-  return (recipe.ingredients && recipe.ingredients.length > 0 ? recipe.ingredients : recipe.useUpSoon) || []
-}
-
-function scoreRecipe(recipe, fridgeItems) {
-  const ings = getRecipeIngredients(recipe)
-  if (ings.length === 0) return { matchCount: 0, total: 0, canMake: false }
-  const matchCount = ings.filter((ing) => ingredientInFridge(ing, fridgeItems)).length
-  const canMake = matchCount === ings.length
-  return { matchCount, total: ings.length, canMake }
-}
 
 export default function Home() {
   const { items: fridgeItems } = useFridge()
@@ -181,19 +157,20 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
           {suggestedRecipes.map((recipe) => {
             const { canMake, matchCount, total } = scoreRecipe(recipe, fridgeItems)
-            return (
-              <div key={recipe.id}>
-                <RecipeCard
-                  recipe={recipe}
-                  badgeLabel={canMake ? 'You can make this' : undefined}
-                />
-                {!canMake && total > 0 && matchCount > 0 && (
-                  <p className="mt-2 text-sm text-ink-muted">
-                    You have {matchCount}/{total} ingredients
-                  </p>
-                )}
-              </div>
-            )
+            const ingredientStatus = !canMake && total > 0
+                ? matchCount > 0
+                  ? `You have ${matchCount}/${total} ingredients`
+                  : `Needs ${total} ingredients`
+                : undefined
+              return (
+                <div key={recipe.id}>
+                  <RecipeCard
+                    recipe={recipe}
+                    badgeLabel={canMake ? 'You can make this' : undefined}
+                    ingredientStatus={ingredientStatus}
+                  />
+                </div>
+              )
           })}
         </div>
         )}

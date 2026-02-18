@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from './Badge'
 
-export default function RecipeCard({ recipe, badgeLabel }) {
+export default function RecipeCard({ recipe, badgeLabel, ingredientStatus }) {
   const { id, title, tags = [], cookTime, image } = recipe
   const [imgError, setImgError] = useState(false)
   const showImage = image && !imgError
@@ -26,16 +26,22 @@ export default function RecipeCard({ recipe, badgeLabel }) {
           </div>
         )}
       </div>
-      <div className="p-6 sm:p-8">
-        {badgeLabel && (
-          <div className="mb-3">
-            <Badge variant="sage">{badgeLabel}</Badge>
+      <div className="p-5 sm:p-6">
+        {(badgeLabel || (ingredientStatus && String(ingredientStatus).trim())) && (
+          <div className="mb-2">
+            {badgeLabel ? (
+              <Badge variant="sage">{badgeLabel}</Badge>
+            ) : (
+              <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium bg-tomato/15 text-tomato-dark">
+                {ingredientStatus}
+              </span>
+            )}
           </div>
         )}
         <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-ink sm:text-xl">
           {title}
         </h3>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {tags.slice(0, 3).map((tag) => (
             <Badge key={tag} variant="sage">{tag}</Badge>
           ))}
