@@ -9,21 +9,102 @@ app_port: 7860
 
 # Fridge to Feast
 
-A minimalistic, responsive multi-page web app for reducing food waste and planning meals. HCI project — focused on usability, accessibility, and clarity.
+A responsive multi-page web app that helps users reduce food waste by tracking fridge items, finding recipes they can cook now, planning meals, and managing shopping.
+
+This is an HCI project focused on clear information hierarchy, low-friction interactions, and accessible mobile-first UI patterns.
+
+## What this project does
+
+Fridge to Feast supports an end-to-end weekly cooking workflow:
+
+1. Track ingredients in **My Fridge** (with expiry awareness).
+2. Get personalized recipe suggestions in **Home** based on what is in your fridge.
+3. Explore and filter all recipes in **Recipe Library**.
+4. Inspect recipe details and add missing ingredients to **Shopping List**.
+5. Check off shopping items and automatically add them to the fridge inventory.
+6. Arrange weekly meals in **Meal Planner** with drag-and-drop or quick add modal.
+7. Follow step-by-step **Cooking Mode**.
+8. View impact metrics in **Analytics** and reset local data when needed.
+
+**Important:** This app is frontend-only. It uses browser localStorage for persistence and mock datasets for recipes, meal slots, and analytics. There is no backend API or database.
 
 ## Tech stack
 
-- **React** (Vite)
-- **TailwindCSS**
-- **React Router**
-- Mock JSON data (no backend)
+- React 18 + Vite
+- React Router v6
+- Tailwind CSS
+- Context API for app-wide state
+- localStorage persistence for fridge and shopping categories
+- Mock data layer in `frontend/src/data/mockData.js`
 
-## Design
+## Core functionality by page
 
-- Warm neutrals (cream, beige, off-white)
-- Accent colors: sage green, tomato red, carrot orange
-- Rounded corners, soft shadows, spacious layout
-- Mobile-first, responsive, WCAG-friendly
+### Home (`/`)
+- Shows “Use up soon” chips for items expiring in ≤2 days.
+- Shows “Suggested for you” recipes that are fully makeable from current fridge contents.
+- Supports quick filters: **All**, **Quick**, **Meatless**, **Under 30 min**.
+
+### My Fridge (`/fridge`)
+- Search and sort fridge inventory (sorted by earliest expiry first).
+- Add ingredients using:
+  - **Add one item** form (name, amount, unit, days to expiry)
+  - **From receipt** mode (paste lines like `2 Milk`, optional receipt image upload)
+- Remove items from fridge.
+- Uses `fridge-to-feast-fridge` localStorage key.
+
+### Recipe Library (`/recipes`)
+- Search recipes by title or tag.
+- Filter by tags dynamically generated from recipe dataset.
+- Displays whether a recipe is fully makeable or how many ingredients are available.
+
+### Recipe Detail (`/recipes/:id`)
+- Displays recipe overview, tags, ingredients, and steps.
+- Compares ingredient list against fridge inventory.
+- Adds missing ingredients to Shopping List category **For recipes**.
+- Entry point to **Cooking Mode**.
+
+### Cooking Mode (`/cooking`)
+- Step-by-step recipe instruction UI with progress bar.
+- Previous/Next navigation and completion action.
+
+### Meal Planner (`/planner`)
+- Weekly table with breakfast/lunch/dinner slots.
+- Drag recipe cards into meal slots.
+- Optional “+ Add” modal with search to assign meals quickly.
+- Recipe sidebar filters by tag (e.g., Quick/Meatless).
+
+### Shopping List (`/shopping`)
+- Category-based checklist UI.
+- Toggling an unchecked item to checked also adds it to fridge (default amount/unit/days).
+- Supports items added from recipe-missing flow and receipt/manual flows.
+- Uses `fridge-to-feast-shopping` localStorage key.
+
+### Analytics (`/analytics`)
+- Displays mock impact metrics:
+  - money saved
+  - food kept from waste (kg)
+  - waste reduction percentage
+- Includes 5-week trend bar chart.
+- Includes **Clear local storage** action (resets saved fridge/shopping state).
+
+## State and data model
+
+- **Fridge context:** `frontend/src/context/FridgeContext.jsx`
+  - add single item, add many items, remove item, persist to localStorage.
+- **Shopping context:** `frontend/src/context/ShoppingContext.jsx`
+  - toggle checked state, add items to categories, persist to localStorage.
+- **Recipe/fridge matching utils:** `frontend/src/utils/recipeFridge.js`
+  - ingredient normalization, fridge matching, recipe score calculation.
+- **Mock dataset:** `frontend/src/data/mockData.js`
+  - recipes, defaults for fridge/shopping, meal slots, recipe steps, analytics.
+
+## Design notes
+
+- Mobile-first responsive layout
+- Fixed top navbar + mobile slide-out menu
+- Reusable card/button/input primitives with Tailwind utility classes
+- Soft visual language (rounded corners, muted palette) for readability
+- Accessibility touches (skip link, focus rings, ARIA labels, semantic controls)
 
 ## Run locally
 
@@ -43,16 +124,23 @@ npm run build
 npm run preview
 ```
 
+Preview serves the production build locally (default Vite preview port).
+
 ## Deploy on Hugging Face
 
-The repo includes a **Dockerfile** and **GitHub Action** so every push to `main` updates your [Hugging Face Space](https://huggingface.co/docs/hub/spaces-sdks-docker).
+This repo includes:
+- a root-level `Dockerfile` that builds `frontend` and serves static `dist`
+- a GitHub Actions workflow at `.github/workflows/deploy-hf.yml`
+
+Every push to `main` triggers deployment to the configured Hugging Face Space.
 
 ### One-time setup
 
-1. **Create a Docker Space** on [huggingface.co/new-space](https://huggingface.co/new-space): choose **Docker** as the SDK (or use existing **monish563/HCI-FoodAppDemo**).
-2. **GitHub repo → Settings → Secrets and variables → Actions:** add secret **`HF_TOKEN`** = a [Hugging Face token](https://huggingface.co/settings/tokens) with **write** access. The workflow deploys to **monish563/HCI-FoodAppDemo**.
+1. Create a Docker Space on [huggingface.co/new-space](https://huggingface.co/new-space).
+2. Add repository secret `HF_TOKEN` in GitHub Actions settings.
+3. Ensure `.github/workflows/deploy-hf.yml` has the correct `HF_SPACE` value for your account.
 
-After that, every **push to `main`** runs the workflow and pushes this repo to your Space; Hugging Face rebuilds the Docker image and redeploys.
+After setup, push to `main` to trigger deploy and rebuild.
 
 ### Run the image locally
 
@@ -63,38 +151,33 @@ docker run -p 7860:7860 hci-foodapp
 
 Open [http://localhost:7860](http://localhost:7860).
 
-## Pages
-
-1. **Home** — Use up soon + recipe suggestions
-2. **My Fridge** — Inventory with expiry badges, add item modal, upload receipt
-3. **Meal Planner** — Weekly grid, drag-and-drop recipes, filters
-4. **Recipe Library** — Search + filter pills, recipe grid
-5. **Cooking Mode** — Step-by-step, large text, progress bar
-6. **Shopping List** — Categorized list with checkboxes
-7. **Analytics** — Money saved, food saved, waste reduction %
-
 ## Project structure
 
 ```
 frontend/
   index.html
-  favicon.svg
-  package.json
-  package-lock.json
-  vite.config.js
-  tailwind.config.js
-  postcss.config.js
+  public/
+    logo.svg
   src/
     App.jsx
     main.jsx
     index.css
+    context/
+      FridgeContext.jsx
+      ShoppingContext.jsx
+    data/
+      mockData.js
+    utils/
+      recipeFridge.js
     components/
       Navbar.jsx
       PageContainer.jsx
       SectionHeader.jsx
+      PageSection.jsx
       RecipeCard.jsx
       IngredientCard.jsx
       Modal.jsx
+      AddItemModal.jsx
       FilterPill.jsx
       Badge.jsx
     pages/
@@ -106,10 +189,34 @@ frontend/
       CookingMode.jsx
       ShoppingList.jsx
       Analytics.jsx
-    data/
-      mockData.js
+  tailwind.config.js
+  vite.config.js
 ```
+
+## Scripts
+
+Inside `frontend/`:
+
+- `npm run dev` — start development server
+- `npm run build` — create production build
+- `npm run preview` — preview production build
+
+## Known limitations
+
+- No backend/API: all data is mock + browser localStorage.
+- No authentication or multi-user sync.
+- Meal planner state is session-based and resets on page reload.
+- Analytics are illustrative values, not calculated from real historical events.
+- Receipt flow supports manual parsing + optional image upload, but no OCR extraction.
+
+## Future work
+
+- Add authenticated cloud sync for fridge, planner, and shopping state.
+- Add OCR for receipts and smarter ingredient normalization.
+- Persist meal planner assignments to localStorage/database.
+- Add unit conversion + quantity-aware recipe feasibility scoring.
+- Replace mock analytics with event-based calculations.
 
 ## License
 
-MIT (or as required by your course).
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
