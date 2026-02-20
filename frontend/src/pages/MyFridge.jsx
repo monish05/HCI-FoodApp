@@ -63,7 +63,7 @@ export default function MyFridge() {
         ) : (
           <div className="card rounded-3xl p-10 text-center sm:p-12">
             <p className="text-base text-ink-muted leading-relaxed">
-              {search.trim() ? 'No ingredients match your search.' : 'No ingredients yet. Add an item to get started.'}
+              {search.trim() ? 'No ingredients match your search.' : 'No ingredients yet. Add items or from a receipt.'}
             </p>
             {!search.trim() && (
               <button

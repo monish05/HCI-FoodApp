@@ -9,7 +9,7 @@ export default function ShoppingList() {
 
   const handleToggle = (catName, item) => {
     if (!item.checked) {
-      addItem({ name: item.name, daysLeft: 7 })
+      addItem({ name: item.name, amount: 1, unit: 'count', daysLeft: 7 })
     }
     toggle(catName, item.id)
   }

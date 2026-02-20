@@ -9,11 +9,23 @@ function getExpiryVariant(daysLeft) {
 // Single consistent avatar style for all fridge items
 const AVATAR_STYLE = 'bg-cream-300 text-ink'
 
+function formatQuantity(item) {
+  if (item.amount != null && item.unit) {
+    const u = item.unit
+    const a = item.amount
+    if (u === 'count') return String(a)
+    if (u === 'clove' || u === 'slice') return a === 1 ? `1 ${u}` : `${a} ${u}`
+    return `${a} ${u}`
+  }
+  return item.quantity ?? '—'
+}
+
 export default function IngredientCard({ item, onRemove }) {
   const { name, daysLeft } = item
   const variant = getExpiryVariant(daysLeft)
   const label = daysLeft === 1 ? '1 day' : `${daysLeft} days`
   const initial = (name || '?').charAt(0).toUpperCase()
+  const quantityText = formatQuantity(item)
 
   return (
     <article className="card card-lift flex min-w-0 items-center gap-4 rounded-3xl p-5 transition-all duration-200 ease-out sm:gap-5 sm:p-6">
@@ -25,6 +37,7 @@ export default function IngredientCard({ item, onRemove }) {
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-base font-semibold text-ink leading-tight">{name}</h3>
+        <p className="mt-0.5 truncate text-sm text-ink-muted leading-relaxed">{quantityText}</p>
       </div>
       <Badge variant={variant} className="shrink-0">{label} left</Badge>
       {onRemove && (
