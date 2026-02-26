@@ -9,7 +9,7 @@ export default function RecipeCard({ recipe, badgeLabel, ingredientStatus }) {
 
   return (
     <Link
-      to={`/recipes/${id}`}
+      to={`/recipes/${id}`} state={{ recipe }}
       className="card card-lift group block min-w-0 overflow-hidden rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
     >
       <div className="aspect-[4/3] overflow-hidden rounded-t-3xl bg-cream-200">

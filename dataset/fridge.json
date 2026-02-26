@@ -1,0 +1,10 @@
+{
+    "user_email":"test@gmail.com",
+    "items":[{"name":"tomato","qty":4,"unit":"pcs","daysLeft":2,"category":"produce","addedAt":"2026-02-25T18:30:00Z"},
+    {"name":"milk","qty":1,"unit":"carton","daysLeft":1,"category":"dairy","addedAt":"2026-02-25T18:30:00Z"},
+    {"name":"eggs","qty":6,"unit":"pcs","daysLeft":6,"category":"dairy","addedAt":"2026-02-25T18:30:00Z"},
+    {"name":"tortillas","qty":8,"unit":"pcs","daysLeft":10,"category":"grains","addedAt":"2026-02-25T18:30:00Z"},
+    {"name":"mushrooms","qty":200,"unit":"g","daysLeft":2,"category":"produce","addedAt":"2026-02-25T18:30:00Z"},
+    {"name":"mozzarella cheese","qty":150,"unit":"g","daysLeft":4,"category":"dairy","addedAt":"2026-02-25T18:30:00Z"},
+    {"name":"onion","qty":2,"unit":"pcs","daysLeft":7,"category":"produce","addedAt":"2026-02-25T18:30:00Z"}],
+    "updated_at":"2026-02-26T06:00:00Z"}

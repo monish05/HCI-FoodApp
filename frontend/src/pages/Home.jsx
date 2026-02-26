@@ -1,22 +1,45 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import RecipeCard from '../components/RecipeCard'
 import FilterPill from '../components/FilterPill'
-import { recipes } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
 import { scoreRecipe, getRecipeIngredients, ingredientInFridge } from '../utils/recipeFridge'
+import { useAuth } from '../context/AuthContext'
 
 const FILTERS = [
   { value: null, label: 'All' },
-  { value: 'Quick', label: 'Quick' },
+  { value: 'Quick', label: 'Quick (≤20 min)' },
   { value: 'Meatless', label: 'Meatless' },
   { value: 30, label: 'Under 30 min' },
 ]
 
 export default function Home() {
   const { items: fridgeItems } = useFridge()
-  const useUpSoonItems = fridgeItems.filter((i) => i.daysLeft <= 2)
+  const useUpSoonItems = fridgeItems.filter((i) => (i.daysLeft ?? 999) <= 2)
   const [filter, setFilter] = useState(null)
+  const [recipes, setRecipes] = useState([])
+
+  const { API_BASE, authHeader } = useAuth()
+
+  // load recipes from backend
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const params = new URLSearchParams()
+        params.set('limit', '200') // load more then filter in UI
+
+        const res = await fetch(`${API_BASE}/api/recipes?${params.toString()}`, { headers: authHeader })
+        if (!res.ok) throw new Error('recipes fetch failed')
+        const data = await res.json()
+        if (!cancelled) setRecipes(data.recipes || [])
+      } catch {
+        if (!cancelled) setRecipes([])
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [API_BASE, authHeader])
 
   const suggestedRecipes = useMemo(() => {
     let list = [...recipes]
@@ -24,22 +47,24 @@ export default function Home() {
       .filter(({ total }) => total > 0)
       .filter(({ canMake }) => canMake)
 
-    if (filter === 'Quick' || filter === 'Meatless') {
-      list = list.filter(({ recipe }) => (recipe.tags || []).includes(filter))
+    if (filter === 'Meatless') {
+      list = list.filter(({ recipe }) => (recipe.tags || []).includes('Meatless'))
     } else if (filter === 30) {
       list = list.filter(({ recipe }) => (recipe.cookTime ?? 999) <= 30)
+    } else if (filter === 'Quick') {
+      list = list.filter(({ recipe }) => (recipe.cookTime ?? 999) <= 20)
     }
 
     list.sort((a, b) => (a.recipe.cookTime ?? 999) - (b.recipe.cookTime ?? 999))
     return list.map(({ recipe }) => recipe).slice(0, 6)
-  }, [fridgeItems, filter])
+  }, [recipes, fridgeItems, filter])
 
   const canMakeCount = useMemo(() => {
     return recipes.filter((r) => {
       const ings = getRecipeIngredients(r)
       return ings.length > 0 && ings.every((ing) => ingredientInFridge(ing, fridgeItems))
     }).length
-  }, [fridgeItems])
+  }, [recipes, fridgeItems])
 
   return (
     <PageContainer>
@@ -101,11 +126,7 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
             {suggestedRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                badgeLabel="You can make this"
-              />
+              <RecipeCard key={recipe.id} recipe={recipe} badgeLabel="You can make this" />
             ))}
           </div>
         )}

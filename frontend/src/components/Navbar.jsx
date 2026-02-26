@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const navItems = [
   { to: '/', label: 'Home' },
@@ -8,11 +9,15 @@ const navItems = [
   { to: '/recipes', label: 'Recipes' },
   { to: '/shopping', label: 'Shopping' },
   { to: '/analytics', label: 'Analytics' },
+  { to: '/profile', label: 'Profile' }, // ✅ add
 ]
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const { token, logout, me } = useAuth()
 
   const closeMenu = () => setMenuOpen(false)
 
@@ -24,8 +29,21 @@ export default function Navbar() {
     if (!menuOpen) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
+    return () => {
+      document.body.style.overflow = prev
+    }
   }, [menuOpen])
+
+  function handleLogout() {
+    logout()
+    closeMenu()
+    navigate('/login')
+  }
+
+  function handleLogin() {
+    closeMenu()
+    navigate('/login')
+  }
 
   return (
     <>
@@ -33,7 +51,11 @@ export default function Navbar() {
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 page-padding page-padding-safe py-3 sm:py-4" aria-label="Main navigation">
+
+        <nav
+          className="mx-auto flex max-w-6xl items-center justify-between gap-4 page-padding page-padding-safe py-3 sm:py-4"
+          aria-label="Main navigation"
+        >
           <NavLink
             to="/"
             className="flex shrink-0 items-center gap-3 text-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 rounded-2xl"
@@ -61,6 +83,23 @@ export default function Navbar() {
                 </NavLink>
               </li>
             ))}
+
+            {/* Desktop auth action */}
+            <li className="shrink-0 pl-1">
+              {token ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex min-h-11 items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium text-ink-muted transition-all duration-200 hover:bg-cream-200/80 hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
+                >
+                  Logout{me?.name ? ` (${me.name})` : ''}
+                </button>
+              ) : (
+                <button type="button" onClick={handleLogin} className="btn-primary px-5">
+                  Log in
+                </button>
+              )}
+            </li>
           </ul>
 
           {/* Mobile: menu button */}
@@ -80,7 +119,9 @@ export default function Navbar() {
 
       {/* Mobile menu overlay */}
       <div
-        className={`fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm transition-opacity duration-200 md:hidden ${menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`fixed inset-0 z-50 bg-ink/40 backdrop-blur-sm transition-opacity duration-200 md:hidden ${
+          menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
         onClick={closeMenu}
         onKeyDown={(e) => e.key === 'Escape' && closeMenu()}
         aria-hidden="true"
@@ -88,7 +129,9 @@ export default function Navbar() {
 
       {/* Mobile menu panel */}
       <aside
-        className={`fixed top-0 right-0 z-50 h-full w-full max-w-sm bg-white shadow-soft-xl transition-transform duration-300 ease-out safe-top safe-right md:hidden ${menuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed top-0 right-0 z-50 h-full w-full max-w-sm bg-white shadow-soft-xl transition-transform duration-300 ease-out safe-top safe-right md:hidden ${
+          menuOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
         aria-label="Mobile menu"
         aria-hidden={!menuOpen}
       >
@@ -106,6 +149,7 @@ export default function Navbar() {
               </svg>
             </button>
           </div>
+
           <ul className="flex flex-1 flex-col gap-1 overflow-y-auto p-4 page-padding-safe">
             {navItems.map(({ to, label }) => {
               const isActive = location.pathname === to || (to !== '/' && location.pathname.startsWith(to))
@@ -115,9 +159,7 @@ export default function Navbar() {
                     to={to}
                     onClick={closeMenu}
                     className={`flex min-h-14 items-center rounded-2xl px-4 text-base font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 ${
-                      isActive
-                        ? 'bg-sage/12 text-sage-dark'
-                        : 'text-ink hover:bg-cream-100'
+                      isActive ? 'bg-sage/12 text-sage-dark' : 'text-ink hover:bg-cream-100'
                     }`}
                   >
                     {label}
@@ -125,6 +167,19 @@ export default function Navbar() {
                 </li>
               )
             })}
+
+            {/* Mobile auth action */}
+            <li className="pt-2">
+              {token ? (
+                <button type="button" onClick={handleLogout} className="btn-secondary w-full">
+                  Logout{me?.name ? ` (${me.name})` : ''}
+                </button>
+              ) : (
+                <button type="button" onClick={handleLogin} className="btn-primary w-full">
+                  Log in
+                </button>
+              )}
+            </li>
           </ul>
         </div>
       </aside>

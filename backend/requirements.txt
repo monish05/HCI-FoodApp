@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-dotenv
+pymongo[srv]
+dnspython
+passlib[bcrypt]
+python-jose[cryptography]
+pydantic[email]
+fastapi-cors

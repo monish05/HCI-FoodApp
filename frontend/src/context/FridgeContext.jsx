@@ -1,73 +1,71 @@
-import { createContext, useContext, useMemo, useCallback, useState, useEffect } from 'react'
-import { fridgeItems as defaultItems } from '../data/mockData'
-
-const STORAGE_KEY = 'fridge-to-feast-fridge'
-
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaultItems
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : defaultItems
-  } catch {
-    return defaultItems
-  }
-}
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useAuth } from './AuthContext'
+import { fridgeItems as mockFridgeItems } from '../data/mockData'
 
 const FridgeContext = createContext(null)
 
+function makeId() {
+  return Math.random().toString(36).slice(2, 10)
+}
+
 export function FridgeProvider({ children }) {
-  const [items, setItems] = useState(load)
+  const { API_BASE, authHeader, token } = useAuth()
+  const [items, setItems] = useState([])
 
+  // Load fridge from backend after login
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-    } catch (_) {}
-  }, [items])
-
-  const addItem = useCallback((item) => {
-    const entry = {
-      id: item.id || `f${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      name: item.name?.trim() || 'Unknown',
-      amount: typeof item.amount === 'number' ? item.amount : 1,
-      unit: item.unit || 'count',
-      daysLeft: typeof item.daysLeft === 'number' ? item.daysLeft : 7,
+    let cancelled = false
+    async function load() {
+      if (!token) {
+        setItems([])
+        return
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/fridge/me`, { headers: authHeader })
+        if (!res.ok) throw new Error('fridge fetch failed')
+        const data = await res.json()
+        const normalized = (data.items || []).map((it) => ({
+          id: it.id || makeId(),
+          name: it.name,
+          amount: it.amount ?? it.qty ?? 1,
+          unit: it.unit ?? 'count',
+          daysLeft: it.daysLeft ?? 7,
+        }))
+        if (!cancelled) setItems(normalized)
+      } catch {
+        // fallback for demo if backend empty
+        if (!cancelled) setItems(mockFridgeItems)
+      }
     }
-    setItems((prev) => [...prev, entry])
-    return entry.id
-  }, [])
+    load()
+    return () => { cancelled = true }
+  }, [API_BASE, authHeader, token])
 
-  const addItems = useCallback((list) => {
-    const base = Date.now()
-    const next = list.map((item, i) => ({
-      id: `f${base}-${i}-${Math.random().toString(36).slice(2, 9)}`,
-      name: item.name?.trim() || 'Unknown',
-      amount: typeof item.amount === 'number' ? item.amount : 1,
-      unit: item.unit || 'count',
-      daysLeft: typeof item.daysLeft === 'number' ? item.daysLeft : 7,
-    }))
-    setItems((prev) => [...prev, ...next])
-    return next.length
-  }, [])
+  async function persist(nextItems) {
+    if (!token) return
+    await fetch(`${API_BASE}/api/fridge/me`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      body: JSON.stringify({ items: nextItems }),
+    })
+  }
 
-  const removeItem = useCallback((id) => {
-    setItems((prev) => prev.filter((i) => i.id !== id))
-  }, [])
+  const addItem = async (item) => {
+    const next = [{ ...item, id: item.id || makeId() }, ...items]
+    setItems(next)
+    await persist(next)
+  }
 
-  const value = useMemo(
-    () => ({ items, setItems, addItem, addItems, removeItem }),
-    [items, addItem, addItems, removeItem]
-  )
+  const removeItem = async (id) => {
+    const next = items.filter((x) => x.id !== id)
+    setItems(next)
+    await persist(next)
+  }
 
-  return (
-    <FridgeContext.Provider value={value}>
-      {children}
-    </FridgeContext.Provider>
-  )
+  const value = useMemo(() => ({ items, addItem, removeItem, setItems }), [items])
+  return <FridgeContext.Provider value={value}>{children}</FridgeContext.Provider>
 }
 
 export function useFridge() {
-  const ctx = useContext(FridgeContext)
-  if (!ctx) throw new Error('useFridge must be used within FridgeProvider')
-  return ctx
+  return useContext(FridgeContext)
 }

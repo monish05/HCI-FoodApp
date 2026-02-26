@@ -12,12 +12,23 @@ export function ingredientInFridge(ingredient, fridgeItems) {
 }
 
 export function getRecipeIngredients(recipe) {
-  return (recipe.ingredients && recipe.ingredients.length > 0 ? recipe.ingredients : recipe.useUpSoon) || []
+  const raw = recipe?.ingredients
+  if (!raw) return []
+
+  // if already an array
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x).trim()).filter(Boolean)
+  }
+
+  // if it's a string (e.g., "A|B|C")
+  const s = String(raw)
+  return s.split('|').map((x) => x.trim()).filter(Boolean)
 }
 
 export function scoreRecipe(recipe, fridgeItems) {
   const ings = getRecipeIngredients(recipe)
   if (ings.length === 0) return { matchCount: 0, total: 0, canMake: false }
+
   const matchCount = ings.filter((ing) => ingredientInFridge(ing, fridgeItems)).length
   const canMake = matchCount === ings.length
   return { matchCount, total: ings.length, canMake }
