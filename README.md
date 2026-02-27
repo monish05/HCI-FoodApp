@@ -53,6 +53,8 @@ README.md
 Make sure Docker Desktop is running, then:
 
 ```bash
+Start docker desktop
+docker build -t hci-foodapp .
 docker run -d --name hci-mongo -p 27017:27017 mongo:7
 
 Verify MongoDB is listening:
