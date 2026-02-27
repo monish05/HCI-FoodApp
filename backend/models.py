@@ -29,6 +29,18 @@ class FridgeItem(BaseModel):
     amount: Optional[float] = None  # keep same as your frontend
     unit: Optional[str] = None
     daysLeft: Optional[int] = None
+    category: Optional[str] = "Other"
 
 class FridgeUpsertIn(BaseModel):
     items: List[FridgeItem] = []
+
+class ShoppingItem(BaseModel):
+    id: str
+    name: str
+    amount: float = 1.0
+    unit: str = "count"
+    checked: bool = False
+    category: str = "Other"
+
+class ShoppingUpsertIn(BaseModel):
+    items: List[ShoppingItem] = []

@@ -22,8 +22,9 @@ export default function RecipeDetail() {
   const { id } = useParams()
   const location = useLocation()
 
-  const { items: fridgeItems } = useFridge()
-  const { items: shoppingItems, setItems: setShoppingItems } = useShopping()
+  const { items: fridgeItems, decrementItems } = useFridge()
+  const { addMultipleItems } = useShopping()
+  const [completed, setCompleted] = useState(false)
   const { API_BASE, authHeader } = useAuth()
 
   // ✅ 优先用 Link state 传过来的 recipe（点击进入时最稳）
@@ -72,12 +73,22 @@ export default function RecipeDetail() {
     const missing = ingredients.filter((ing) => !inFridge.get(ing))
     if (!missing.length) return
     const newItems = missing.map((name) => ({
-      id: Math.random().toString(36).slice(2, 10),
       name,
       category: FOR_RECIPES_CATEGORY,
       checked: false,
     }))
-    setShoppingItems([...(shoppingItems || []), ...newItems])
+    addMultipleItems(newItems)
+  }
+
+  function handleCompleteRecipe() {
+    const missingCount = ingredients.filter((ing) => !inFridge.get(ing)).length
+    const proceed = missingCount === 0 || window.confirm("You do not have all the ingredients for this recipe, are you sure you want to update your fridge?")
+
+    if (proceed) {
+      decrementItems(ingredients)
+      setCompleted(true)
+      setTimeout(() => setCompleted(false), 2000)
+    }
   }
 
   return (
@@ -121,9 +132,19 @@ export default function RecipeDetail() {
             <section className="mb-10">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg font-bold text-ink">Ingredients</h2>
-                <button type="button" onClick={addMissingToShopping} className="btn-secondary">
-                  Add missing to Shopping List
-                </button>
+                <div className="flex gap-2">
+                  <button type="button" onClick={addMissingToShopping} className="btn-secondary whitespace-nowrap">
+                    Add missing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCompleteRecipe}
+                    disabled={completed}
+                    className={`btn-primary whitespace-nowrap ${completed ? 'bg-sage !text-white' : ''}`}
+                  >
+                    {completed ? '✓ Completed' : 'Complete Recipe'}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

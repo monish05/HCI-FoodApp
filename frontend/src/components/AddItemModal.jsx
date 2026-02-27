@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import Modal from './Modal'
 import { useFridge } from '../context/FridgeContext'
 import { FRIDGE_UNITS } from '../data/mockData'
+import IngredientAutocomplete from './IngredientAutocomplete'
 
 const MODES = { receipt: 'From receipt', manual: 'Add one item' }
 
@@ -25,6 +26,7 @@ export default function AddItemModal({ isOpen, onClose }) {
   const [newAmount, setNewAmount] = useState('1')
   const [newUnit, setNewUnit] = useState('count')
   const [newDays, setNewDays] = useState(5)
+  const [newCategory, setNewCategory] = useState('Other')
 
   // From receipt
   const [receiptText, setReceiptText] = useState('')
@@ -44,6 +46,7 @@ export default function AddItemModal({ isOpen, onClose }) {
     setNewAmount('1')
     setNewUnit('count')
     setNewDays(5)
+    setNewCategory('Other')
     setReceiptText('')
     setReceiptDays(7)
     setAddedCount(0)
@@ -87,6 +90,7 @@ export default function AddItemModal({ isOpen, onClose }) {
       amount: Number(newAmount) || 1,
       unit: newUnit,
       daysLeft: Number(newDays) || 5,
+      category: newCategory,
     })
     handleClose()
   }
@@ -100,9 +104,8 @@ export default function AddItemModal({ isOpen, onClose }) {
               key={key}
               type="button"
               onClick={() => setMode(key)}
-              className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors ${
-                mode === key ? 'bg-white text-ink shadow-soft' : 'text-ink-muted hover:text-ink'
-              }`}
+              className={`flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors ${mode === key ? 'bg-white text-ink shadow-soft' : 'text-ink-muted hover:text-ink'
+                }`}
             >
               {label}
             </button>
@@ -212,14 +215,10 @@ export default function AddItemModal({ isOpen, onClose }) {
               <label htmlFor="add-name" className="mb-1.5 block text-sm font-medium text-ink">
                 Name
               </label>
-              <input
-                id="add-name"
-                type="text"
+              <IngredientAutocomplete
                 value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                onChange={setNewName}
                 placeholder="e.g. Milk"
-                className="input w-full"
-                autoFocus
               />
             </div>
             <div className="grid grid-cols-[1fr_auto] gap-4">
@@ -267,6 +266,21 @@ export default function AddItemModal({ isOpen, onClose }) {
                 onChange={(e) => setNewDays(e.target.value)}
                 className="input w-full max-w-[8rem]"
               />
+            </div>
+            <div>
+              <label htmlFor="add-category" className="mb-1.5 block text-sm font-medium text-ink">
+                Category
+              </label>
+              <select
+                id="add-category"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="input w-full"
+              >
+                {['Protein', 'Dairy', 'Produce', 'Pantry', 'Other'].map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={handleClose} className="btn-secondary flex-1">

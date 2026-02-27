@@ -1,4 +1,5 @@
 import Badge from './Badge'
+import { useFridge } from '../context/FridgeContext'
 
 function getExpiryVariant(daysLeft) {
   if (daysLeft <= 2) return 'tomato'
@@ -6,50 +7,69 @@ function getExpiryVariant(daysLeft) {
   return 'sage'
 }
 
-// Single consistent avatar style for all fridge items
 const AVATAR_STYLE = 'bg-cream-300 text-ink'
 
-function formatQuantity(item) {
-  if (item.amount != null && item.unit) {
-    const u = item.unit
-    const a = item.amount
-    if (u === 'count') return String(a)
-    if (u === 'clove' || u === 'slice') return a === 1 ? `1 ${u}` : `${a} ${u}`
-    return `${a} ${u}`
-  }
-  return item.quantity ?? '—'
-}
-
-export default function IngredientCard({ item, onRemove }) {
-  const { name, daysLeft } = item
+export default function IngredientCard({ item }) {
+  const { removeItem, updateAmount } = useFridge()
+  const { id, name, daysLeft, amount, unit } = item
   const variant = getExpiryVariant(daysLeft)
   const label = daysLeft === 1 ? '1 day' : `${daysLeft} days`
   const initial = (name || '?').charAt(0).toUpperCase()
-  const quantityText = formatQuantity(item)
+
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('text/plain', item.id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
 
   return (
-    <article className="card card-lift flex min-w-0 items-center gap-4 rounded-3xl p-5 transition-all duration-200 ease-out sm:gap-5 sm:p-6">
+    <article
+      draggable
+      onDragStart={handleDragStart}
+      className="card card-lift flex flex-col items-center gap-4 rounded-3xl p-6 transition-all duration-200 ease-out text-center relative h-full cursor-grab active:cursor-grabbing"
+    >
+      <button
+        type="button"
+        onClick={() => removeItem(id)}
+        className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none"
+        aria-label={`Remove ${name} from fridge`}
+      >
+        ×
+      </button>
+
       <div
-        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold sm:h-14 sm:w-14 sm:text-2xl ${AVATAR_STYLE}`}
+        className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-3xl font-semibold ${AVATAR_STYLE}`}
         aria-hidden
       >
         {initial}
       </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-base font-semibold text-ink leading-tight">{name}</h3>
-        <p className="mt-0.5 truncate text-sm text-ink-muted leading-relaxed">{quantityText}</p>
+
+      <div className="flex-1 w-full min-w-0">
+        <h3 className="truncate text-lg font-bold text-ink mb-1">{name}</h3>
+        <Badge variant={variant} className="inline-block">{label} left</Badge>
       </div>
-      <Badge variant={variant} className="shrink-0">{label} left</Badge>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={() => onRemove(item)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
-          aria-label={`Remove ${name} from fridge`}
-        >
-          ×
-        </button>
-      )}
+
+      <div className="w-full mt-2">
+        <div className="flex items-center justify-between bg-cream-100/50 rounded-2xl p-2">
+          <button
+            type="button"
+            onClick={() => updateAmount(id, -1)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl font-bold text-ink shadow-soft hover:bg-cream-200 transition-colors"
+          >
+            −
+          </button>
+          <div className="flex flex-col min-w-[3rem]">
+            <span className="text-lg font-bold text-ink leading-none">{amount}</span>
+            <span className="text-[10px] text-ink-muted mt-0.5 uppercase tracking-wider">{unit}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => updateAmount(id, 1)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xl font-bold text-ink shadow-soft hover:bg-cream-200 transition-colors"
+          >
+            +
+          </button>
+        </div>
+      </div>
     </article>
   )
 }

@@ -131,9 +131,13 @@ export default function RecipeLibrary() {
           <p className="py-10 text-center text-sm text-ink-muted">Loading recipes…</p>
         ) : filteredRecipes.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
-            {filteredRecipes.map(({ recipe, canMake }) => (
+            {filteredRecipes.map(({ recipe, canMake, missing }) => (
               <div key={recipe.id}>
-                <RecipeCard recipe={recipe} badgeLabel={canMake ? 'You can make this' : undefined} />
+                <RecipeCard
+                  recipe={recipe}
+                  badgeLabel={canMake ? 'You can make this' : undefined}
+                  missing={missing}
+                />
               </div>
             ))}
           </div>

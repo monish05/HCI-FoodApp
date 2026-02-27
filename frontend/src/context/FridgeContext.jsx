@@ -30,6 +30,7 @@ export function FridgeProvider({ children }) {
           amount: it.amount ?? it.qty ?? 1,
           unit: it.unit ?? 'count',
           daysLeft: it.daysLeft ?? 7,
+          category: it.category || 'Other'
         }))
         if (!cancelled) setItems(normalized)
       } catch {
@@ -62,7 +63,67 @@ export function FridgeProvider({ children }) {
     await persist(next)
   }
 
-  const value = useMemo(() => ({ items, addItem, removeItem, setItems }), [items])
+  const updateAmount = async (id, delta) => {
+    const next = items.map(item => {
+      if (item.id === id) {
+        const newAmount = Math.max(0, (item.amount || 0) + delta)
+        return { ...item, amount: newAmount }
+      }
+      return item
+    }).filter(it => it.amount > 0)
+    setItems(next)
+    await persist(next)
+  }
+
+  const decrementItems = async (ingredientNames) => {
+    const namesNorm = ingredientNames.map(n => n.toLowerCase().trim())
+    const next = items.map(item => {
+      const match = namesNorm.some(nn =>
+        item.name.toLowerCase().trim().includes(nn) ||
+        nn.includes(item.name.toLowerCase().trim())
+      )
+      if (match) {
+        return { ...item, amount: Math.max(0, (item.amount || 0) - 1) }
+      }
+      return item
+    }).filter(it => it.amount > 0)
+    setItems(next)
+    await persist(next)
+  }
+
+  const updateCategory = async (id, newCategory) => {
+    const next = items.map(it => it.id === id ? { ...it, category: newCategory } : it)
+    setItems(next)
+    await persist(next)
+  }
+
+  const addMultipleItems = async (itemsToAdd) => {
+    if (!token) return
+    try {
+      // Call the new specific backend merge endpoint
+      const res = await fetch(`${API_BASE}/api/fridge/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({ items: itemsToAdd }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const normalized = (data.items || []).map((it) => ({
+          id: it.id || makeId(),
+          name: it.name,
+          amount: it.amount ?? 1,
+          unit: it.unit ?? 'count',
+          daysLeft: it.daysLeft ?? 7,
+          category: it.category || 'Other'
+        }))
+        setItems(normalized)
+      }
+    } catch (err) {
+      console.error("Failed to add multiple items to fridge", err)
+    }
+  }
+
+  const value = useMemo(() => ({ items, addItem, removeItem, updateAmount, decrementItems, updateCategory, addMultipleItems, setItems }), [items])
   return <FridgeContext.Provider value={value}>{children}</FridgeContext.Provider>
 }
 

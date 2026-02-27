@@ -9,6 +9,7 @@ from routes_auth import router as auth_router
 from routes_user import router as user_router
 from routes_fridge import router as fridge_router
 from routes_recipes import router as recipes_router
+from routes_shopping import router as shopping_router
 
 app = FastAPI()
 
@@ -25,6 +26,7 @@ app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(fridge_router)
 app.include_router(recipes_router)
+app.include_router(shopping_router)
 
 @app.get("/api/health")
 def health():

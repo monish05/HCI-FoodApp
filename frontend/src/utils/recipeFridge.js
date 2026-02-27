@@ -27,9 +27,10 @@ export function getRecipeIngredients(recipe) {
 
 export function scoreRecipe(recipe, fridgeItems) {
   const ings = getRecipeIngredients(recipe)
-  if (ings.length === 0) return { matchCount: 0, total: 0, canMake: false }
+  if (ings.length === 0) return { matchCount: 0, total: 0, canMake: false, missing: [] }
 
-  const matchCount = ings.filter((ing) => ingredientInFridge(ing, fridgeItems)).length
-  const canMake = matchCount === ings.length
-  return { matchCount, total: ings.length, canMake }
+  const missing = ings.filter((ing) => !ingredientInFridge(ing, fridgeItems))
+  const matchCount = ings.length - missing.length
+  const canMake = missing.length === 0
+  return { matchCount, total: ings.length, canMake, missing }
 }
