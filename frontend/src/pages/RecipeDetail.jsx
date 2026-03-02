@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import Badge from '../components/Badge'
 import PageContainer from '../components/PageContainer'
 import { recipeSteps } from '../data/mockData'
@@ -16,6 +16,7 @@ const FOR_RECIPES_CATEGORY = 'For recipes'
 export default function RecipeDetail() {
   const { id } = useParams()
   const auth = useAuth()
+  const navigate = useNavigate()
   const [recipe, setRecipe] = useState(null)
   const [similar, setSimilar] = useState([])
   const [loading, setLoading] = useState(true)
@@ -53,6 +54,14 @@ export default function RecipeDetail() {
       const matches = name.includes(ing) || ing.includes(name)
       return matches && (item.daysLeft ?? 9999) <= 2
     })
+  }
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      navigate('/')
+    }
   }
 
   useEffect(() => {
@@ -110,9 +119,9 @@ export default function RecipeDetail() {
         <div className="page-content">
           <div className="card rounded-3xl p-12 text-center">
             <p className="text-ink-muted leading-relaxed">{error}</p>
-            <Link to="/recipes" className="btn-primary mt-6 inline-block">
+            <button type="button" onClick={handleBack} className="btn-primary mt-6 inline-block">
               Back to library
-            </Link>
+            </button>
           </div>
         </div>
       </PageContainer>
@@ -125,9 +134,9 @@ export default function RecipeDetail() {
         <div className="page-content">
           <div className="card rounded-3xl p-12 text-center">
             <p className="text-ink-muted leading-relaxed">Recipe not found.</p>
-            <Link to="/recipes" className="btn-primary mt-6 inline-block">
+            <button type="button" onClick={handleBack} className="btn-primary mt-6 inline-block">
               Back to library
-            </Link>
+            </button>
           </div>
         </div>
       </PageContainer>
@@ -137,12 +146,13 @@ export default function RecipeDetail() {
   return (
     <PageContainer>
       <div className="page-content">
-        <Link
-          to="/recipes"
+        <button
+          type="button"
+          onClick={handleBack}
           className="mb-6 inline-block text-sm font-medium text-ink-muted transition-colors hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded-full"
         >
           ← Back to library
-        </Link>
+        </button>
         <div className="card overflow-hidden rounded-3xl p-0">
           <div className="p-6 sm:p-8 lg:p-10">
             <div className="flex items-start gap-4 sm:gap-5">
