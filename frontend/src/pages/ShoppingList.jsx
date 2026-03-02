@@ -14,7 +14,6 @@ export default function ShoppingList() {
     addItemToCategory,
     updateItem,
     removeItem,
-    moveItem,
     clearChecked,
     clearAll,
   } = useShopping()
@@ -115,7 +114,17 @@ export default function ShoppingList() {
       .slice(0, 12)
   }, [ingredients, ingredientInput])
 
-  const [dragTarget, setDragTarget] = useState(null)
+  const normalizedCountInput = Math.max(1, Number(countInput) || 0)
+  const canAddItem = Boolean(
+    ingredientInput.trim() &&
+    (categoryInput || defaultCategory) &&
+    Number.isFinite(Number(countInput)) &&
+    normalizedCountInput >= 1
+  )
+
+  const allItems = useMemo(() => Object.values(categories || {}).flat(), [categories])
+  const totalItemCount = allItems.length
+  const checkedItemCount = allItems.filter((item) => item.checked).length
 
   return (
     <PageContainer>
@@ -125,8 +134,7 @@ export default function ShoppingList() {
           subtitle="Check off as you shop"
         />
         <div className="mb-8 rounded-3xl border border-cream-200 bg-white/80 p-5 shadow-soft sm:p-6">
-          <h3 className="text-base font-semibold text-ink">Add item</h3>
-          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
             <div className="relative flex-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
                 Ingredient
@@ -138,7 +146,8 @@ export default function ShoppingList() {
                 onBlur={() => {
                   setTimeout(() => setShowIngredientMenu(false), 100)
                 }}
-                placeholder="Start typing..."
+                placeholder="Add item..."
+                required
                 className="mt-2 w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/40"
               />
               {showIngredientMenu && ingredientInput.trim() && filteredIngredients.length > 0 && (
@@ -170,6 +179,7 @@ export default function ShoppingList() {
               <select
                 value={categoryInput || defaultCategory}
                 onChange={(event) => setCategoryInput(event.target.value)}
+                required
                 className="mt-2 w-full rounded-2xl border border-cream-200 bg-white px-4 py-3 text-sm text-ink shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/40"
               >
                 {Object.keys(categories || {}).map((key) => (
@@ -179,33 +189,25 @@ export default function ShoppingList() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCountInput(Math.max(1, Number(countInput) - 1))}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-cream-200 bg-white text-base font-semibold text-ink transition hover:bg-cream-100"
-              >
-                −
-              </button>
+            <div className="w-24">
+              <label className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                Qty
+              </label>
               <input
                 type="number"
                 min="1"
+                step="1"
                 value={countInput}
                 onChange={(event) => setCountInput(event.target.value)}
-                className="h-10 w-20 rounded-2xl border border-cream-200 bg-white px-3 text-center text-sm text-ink shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/40"
+                required
+                className="mt-2 h-11 w-full appearance-none rounded-2xl border border-cream-200 bg-white px-3 text-center text-sm text-ink shadow-soft focus:border-sage focus:outline-none focus:ring-2 focus:ring-sage/40"
               />
-              <button
-                type="button"
-                onClick={() => setCountInput(Math.max(1, Number(countInput) + 1))}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-cream-200 bg-white text-base font-semibold text-ink transition hover:bg-cream-100"
-              >
-                +
-              </button>
             </div>
             <button
               type="button"
               onClick={handleAddItem}
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-sage px-6 text-sm font-semibold text-white shadow-soft transition hover:bg-sage-dark active:scale-[0.98]"
+              disabled={!canAddItem}
+              className="inline-flex h-11 items-center justify-center rounded-2xl bg-sage px-6 text-sm font-semibold text-white shadow-soft transition hover:bg-sage-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-sage/50 disabled:shadow-none"
             >
               Add to list
             </button>
@@ -215,100 +217,81 @@ export default function ShoppingList() {
           {Object.entries(categories).map(([catName, items]) => (
             <section
               key={catName}
-              onDragOver={(event) => {
-                event.preventDefault()
-                setDragTarget(catName)
-              }}
-              onDragLeave={() => setDragTarget((prev) => (prev === catName ? null : prev))}
-              onDrop={(event) => {
-                event.preventDefault()
-                const fromKey = event.dataTransfer.getData('text/category')
-                const itemId = event.dataTransfer.getData('text/itemId')
-                moveItem(fromKey, catName, itemId)
-                setDragTarget(null)
-              }}
-              className={`rounded-3xl p-2 transition ${
-                dragTarget === catName ? 'bg-sage/10 ring-2 ring-sage/30' : ''
-              }`}
+              className="rounded-3xl p-2"
             >
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-bold text-ink sm:text-xl">{catName}</h3>
-                {dragTarget === catName && (
-                  <span className="rounded-full bg-sage/15 px-3 py-1 text-xs font-semibold text-sage">
-                    Drop here to move
-                  </span>
-                )}
               </div>
-              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <article
-                      className="card card-lift group inline-flex w-full flex-col gap-3 rounded-2xl p-4 transition-all duration-200 ease-out sm:max-w-[360px]"
-                      draggable
-                      onDragStart={(event) => {
-                        event.dataTransfer.setData('text/category', catName)
-                        event.dataTransfer.setData('text/itemId', item.id)
-                        event.dataTransfer.effectAllowed = 'move'
-                      }}
-                      onDragEnd={() => setDragTarget(null)}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3
-                            className={`text-base font-semibold leading-tight ${
-                              item.checked ? 'text-ink-muted line-through' : 'text-ink'
-                            }`}
-                          >
-                            {displayName(item.name)}
-                          </h3>
-                          <span className="mt-1 inline-flex items-center rounded-full bg-cream-100 px-2.5 py-1 text-xs font-semibold text-ink-muted">
-                          Qty: {item.count ?? 1}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-cream-200 bg-white text-ink-muted opacity-70 transition group-hover:opacity-100"
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {items.map((item) => {
+                  const name = displayName(item.name)
+                  const initial = name.charAt(0).toUpperCase() || '?'
+
+                  return (
+                    <li key={item.id}>
+                      <article
+                        className={`card group relative inline-flex min-w-0 w-full flex-col items-center gap-3 rounded-2xl p-5 text-center shadow-soft transition-all duration-200 ease-out ${
+                          item.checked
+                            ? 'border border-sage/40 bg-sage/10 ring-2 ring-sage/25'
+                            : 'border border-cream-200 bg-white hover:-translate-y-0.5 hover:border-sage/40 hover:shadow-soft-lg'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => removeItem(catName, item.id)}
+                          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100"
+                          aria-label="Delete item"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                             aria-hidden
-                            title="Drag to move"
                           >
-                            ⋮⋮
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeItem(catName, item.id)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100"
-                            aria-label="Delete item"
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              className="h-4 w-4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden
-                            >
-                              <path d="M3 6h18" />
-                              <path d="M8 6v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" />
-                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                              <path d="M10 11v6" />
-                              <path d="M14 11v6" />
-                            </svg>
-                          </button>
+                            <path d="M3 6h18" />
+                            <path d="M8 6v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                          </svg>
+                        </button>
+
+                        <div
+                          className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-semibold ${
+                            item.checked ? 'bg-sage/20 text-sage-dark' : 'bg-cream-300 text-ink'
+                          }`}
+                          aria-hidden
+                        >
+                          {initial}
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <label className="inline-flex items-center gap-2 text-sm text-ink-muted">
+
+                        <h3
+                          className={`text-base font-semibold leading-tight ${
+                            item.checked ? 'text-ink-muted line-through' : 'text-ink'
+                          }`}
+                        >
+                          {name}
+                        </h3>
+
+                        <span className="inline-flex items-center rounded-full bg-cream-100 px-2.5 py-1 text-xs font-semibold text-ink-muted">
+                          Qty: {item.count ?? 1}
+                        </span>
+
+                        <label className={`mt-1 inline-flex items-center gap-2 text-sm ${item.checked ? 'text-sage-dark font-semibold' : 'text-ink-muted'}`}>
                           <input
                             type="checkbox"
                             checked={item.checked}
                             onChange={() => handleToggle(catName, item)}
                             className="h-5 w-5 shrink-0 rounded-full border-cream-300 text-sage focus:ring-sage focus:ring-offset-2"
                           />
-                            Add to fridge
+                          {item.checked ? 'Added to fridge' : 'Add to fridge'}
                         </label>
-                        <div className="flex items-center gap-2">
+
+                        <div className="mt-1 flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
@@ -341,10 +324,10 @@ export default function ShoppingList() {
                             +
                           </button>
                         </div>
-                      </div>
-                    </article>
-                  </li>
-                ))}
+                      </article>
+                    </li>
+                  )
+                })}
               </ul>
             </section>
           ))}
@@ -353,7 +336,8 @@ export default function ShoppingList() {
           <button
             type="button"
             onClick={() => setShowClearCheckedModal(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-cream-200 bg-white px-6 py-3 text-sm font-semibold text-ink-muted shadow-soft transition hover:bg-cream-100"
+            disabled={checkedItemCount === 0}
+            className="inline-flex items-center gap-2 rounded-full border border-cream-200 bg-white px-6 py-3 text-sm font-semibold text-ink-muted shadow-soft transition hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Clear checked items"
           >
             <svg
@@ -372,12 +356,13 @@ export default function ShoppingList() {
               <path d="M10 11v6" />
               <path d="M14 11v6" />
             </svg>
-            Clear checked
+            Remove added to fridge {checkedItemCount > 0 ? `(${checkedItemCount})` : ''}
           </button>
           <button
             type="button"
             onClick={() => setShowClearAllModal(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-rose-700"
+            disabled={totalItemCount === 0}
+            className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
             aria-label="Clear entire shopping list"
           >
             <svg
@@ -396,7 +381,7 @@ export default function ShoppingList() {
               <path d="M10 11v6" />
               <path d="M14 11v6" />
             </svg>
-            Clear all
+            Clear entire list {totalItemCount > 0 ? `(${totalItemCount})` : ''}
           </button>
         </div>
         <Modal
