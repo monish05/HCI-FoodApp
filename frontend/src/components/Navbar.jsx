@@ -4,11 +4,9 @@ import { useAuth } from '../context/AuthContext'
 
 const navItems = [
   { to: '/', label: 'Home' },
-  { to: '/fridge', label: 'My Fridge' },
-  { to: '/planner', label: 'Planner' },
   { to: '/recipes', label: 'Recipes' },
+  { to: '/fridge', label: 'My Fridge' },
   { to: '/shopping', label: 'Shopping' },
-  { to: '/analytics', label: 'Analytics' },
 ]
 
 export default function Navbar() {
@@ -64,8 +62,8 @@ export default function Navbar() {
             className="flex shrink-0 items-center gap-3 text-ink transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 rounded-2xl"
           >
             <img src="/logo.svg" alt="" className="h-9 w-9 sm:h-10 sm:w-10" width="40" height="40" />
-            <span className="hidden text-lg font-semibold sm:inline">Fridge to Feast</span>
-            <span className="text-lg font-semibold sm:hidden">Feast</span>
+            <span className="hidden text-lg font-semibold sm:inline">Easy Kitchen</span>
+            <span className="text-lg font-semibold sm:hidden">Easy Kitchen</span>
           </NavLink>
 
           {/* Desktop: horizontal nav */}
@@ -103,10 +101,27 @@ export default function Navbar() {
                 >
                   <NavLink
                     to="/profile"
+                    onClick={() => setProfileOpen(false)}
                     className="block px-4 py-2.5 text-sm text-ink hover:bg-cream-100 rounded-t-2xl"
                     role="menuitem"
                   >
                     Profile
+                  </NavLink>
+                  <NavLink
+                    to="/analytics"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-ink hover:bg-cream-100"
+                    role="menuitem"
+                  >
+                    Analytics
+                  </NavLink>
+                  <NavLink
+                    to="/planner"
+                    onClick={() => setProfileOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-ink hover:bg-cream-100"
+                    role="menuitem"
+                  >
+                    Planner
                   </NavLink>
                   <button
                     type="button"
