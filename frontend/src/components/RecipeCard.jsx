@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom'
 import Badge from './Badge'
 
 export default function RecipeCard({ recipe, badgeLabel, ingredientStatus }) {
-  const { id, title, tags = [], cookTime, totalTime, image, isExpiringSoon } = recipe
+  const { id, title, cookTime, totalTime, image, rating, voteCount } = recipe
   const [imgError, setImgError] = useState(false)
   const showImage = image && !imgError
   const displayTime = totalTime ?? cookTime
+  const ratingValue = Number(rating || 0)
+  const hasRating = ratingValue > 0
+  const ratingRounded = Math.max(0, Math.min(5, Math.round(ratingValue)))
+  const ratingStars = '★'.repeat(ratingRounded) + '☆'.repeat(5 - ratingRounded)
 
   return (
     <Link
@@ -42,8 +46,21 @@ export default function RecipeCard({ recipe, badgeLabel, ingredientStatus }) {
         <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-ink sm:text-xl">
           {title}
         </h3>
-        {displayTime && (
-          <p className="mt-2 text-sm text-ink-muted">{displayTime} min</p>
+        {(displayTime || hasRating) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {displayTime ? (
+              <span className="inline-flex items-center rounded-full bg-cream-100 px-2.5 py-1 text-xs font-medium text-ink-muted sm:text-sm">
+                ⏱️ {displayTime} min
+              </span>
+            ) : null}
+            {hasRating ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-cream-100 px-2.5 py-1 text-xs font-medium text-ink-muted sm:text-sm">
+                <span aria-hidden className="tracking-tight text-amber-500">{ratingStars}</span>
+                <span>{ratingValue.toFixed(1)}</span>
+                {voteCount ? <span className="text-ink-muted/80">({voteCount})</span> : null}
+              </span>
+            ) : null}
+          </div>
         )}
       </div>
     </Link>
