@@ -20,7 +20,6 @@ function normalizeName(name) {
 
 export default function MyFridge() {
   const { items, removeItem, updateItem, addItem, loading } = useFridge()
-  const [search, setSearch] = useState('')
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
   const [quickAddItem, setQuickAddItem] = useState(null)
@@ -28,11 +27,23 @@ export default function MyFridge() {
   const [showClearModal, setShowClearModal] = useState(false)
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return items
-      .filter((item) => item.name.toLowerCase().includes(q))
-      .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))
-  }, [items, search])
+    return [...items].sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))
+  }, [items])
+
+  const totalCount = useMemo(
+    () => items.reduce((sum, item) => sum + (item.count || 0), 0),
+    [items]
+  )
+
+  const expiringSoonCount = useMemo(
+    () => items.filter((item) => (item.daysLeft ?? 0) <= 2).length,
+    [items]
+  )
+
+  const lowStockCount = useMemo(
+    () => items.filter((item) => (item.count ?? 0) <= 1).length,
+    [items]
+  )
 
   const grouped = useMemo(() => {
     const groups = {}
@@ -80,31 +91,39 @@ export default function MyFridge() {
       <div className="page-content">
         <SectionHeader
           title="My Fridge"
-          subtitle="Your ingredient inventory"
+          subtitle="Track ingredients, spot what expires soon, and keep stock in control"
         />
 
-        <div className="card mb-6 rounded-3xl p-6 sm:mb-8 sm:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-4">
-            <input
-              id="fridge-search"
-              type="search"
-              placeholder="Search ingredients..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input flex-1"
-              aria-label="Search ingredients"
-            />
+        <div className="mb-8 rounded-3xl border border-cream-200 bg-white/80 p-5 shadow-soft sm:p-6">
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl bg-cream-100/80 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Total items</p>
+              <p className="mt-1 text-xl font-bold text-ink">{totalCount}</p>
+            </div>
+            <div className="rounded-2xl bg-cream-100/80 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Expiring soon</p>
+              <p className="mt-1 text-xl font-bold text-tomato-dark">{expiringSoonCount}</p>
+            </div>
+            <div className="rounded-2xl bg-cream-100/80 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Low stock</p>
+              <p className="mt-1 text-xl font-bold text-amber-700">{lowStockCount}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-ink">Manage your fridge inventory</p>
+              <p className="mt-0.5 text-sm text-ink-muted">Add ingredients and keep your stock updated.</p>
+            </div>
             <button
               type="button"
               onClick={() => setAddModalOpen(true)}
-              className="btn-primary w-full sm:w-auto"
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-sage px-6 text-sm font-semibold text-white shadow-soft transition hover:bg-sage-dark active:scale-[0.98] lg:w-auto"
             >
               Add item
             </button>
           </div>
-          <p className="mt-4 text-sm text-ink-muted leading-relaxed">
-            <span className="font-medium text-ink">Expiry:</span> 1–2 days (red) · 3–5 days (amber) · 6+ days (green)
-          </p>
+
         </div>
 
         {loading ? (
@@ -157,17 +176,15 @@ export default function MyFridge() {
         ) : (
           <div className="card rounded-3xl p-10 text-center sm:p-12">
             <p className="text-base text-ink-muted leading-relaxed">
-              {search.trim() ? 'No ingredients match your search.' : 'No ingredients yet. Add items or from a receipt.'}
+              No ingredients yet. Start by adding your first item.
             </p>
-            {!search.trim() && (
-              <button
-                type="button"
-                onClick={() => setAddModalOpen(true)}
-                className="btn-primary mt-6"
-              >
-                Add item
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setAddModalOpen(true)}
+              className="btn-primary mt-6"
+            >
+              Add item
+            </button>
           </div>
         )}
         <div className="mt-10 flex justify-center">

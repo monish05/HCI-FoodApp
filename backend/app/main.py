@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from .routes.analytics import router as analytics_router
 from .routes.auth import router as auth_router
 from .routes.fridge import router as fridge_router
+from .routes.planner import router as planner_router
 from .routes.preferences import router as preferences_router
 from .routes.recipes import router as recipes_router
 from .routes.users import router as users_router
@@ -39,6 +40,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(analytics_router)
 app.include_router(fridge_router)
+app.include_router(planner_router)
 app.include_router(preferences_router)
 app.include_router(recipes_router)
 app.include_router(users_router)

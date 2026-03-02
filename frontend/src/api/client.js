@@ -145,3 +145,21 @@ export async function getAnalyticsState(token) {
 export async function saveAnalyticsState(token, analytics) {
   return request('/analytics/me', { method: 'PUT', body: analytics || {}, token })
 }
+
+export async function getMealPlanWeek(token, start) {
+  const query = new URLSearchParams()
+  if (start) query.set('start', start)
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return request(`/planner/week${suffix}`, { token })
+}
+
+export async function saveMealPlanWeek(token, start, plan) {
+  const query = new URLSearchParams()
+  if (start) query.set('start', start)
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return request(`/planner/week${suffix}`, {
+    method: 'PUT',
+    body: plan || {},
+    token,
+  })
+}
