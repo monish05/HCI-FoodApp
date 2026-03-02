@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
 import RecipeCard from '../components/RecipeCard'
@@ -9,15 +9,113 @@ import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
 import { useSearchParams } from 'react-router-dom'
 
+const COURSE_OPTIONS = [
+  { value: 'All', label: 'All' },
+  { value: 'Breakfast', label: 'Breakfast' },
+  { value: 'Lunch', label: 'Lunch' },
+  { value: 'Dinner', label: 'Dinner' },
+]
+
+const SORT_OPTIONS = [
+  { value: 'relevance', label: 'Best match' },
+  { value: 'expiring', label: 'Expiring soon' },
+  { value: 'cook_time', label: 'Cook time' },
+  { value: 'rating', label: 'Rating' },
+  { value: 'vote_count', label: 'Most votes' },
+]
+
+const MAX_TIME_OPTIONS = [
+  { value: 'Any', label: 'Any' },
+  { value: '15', label: 'Under 15 min' },
+  { value: '30', label: 'Under 30 min' },
+  { value: '45', label: 'Under 45 min' },
+  { value: '60', label: 'Under 60 min' },
+]
+
+function StyledDropdown({ id, label, value, options, onChange }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const selected = options.find((option) => option.value === value) || options[0]
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) {
+        setOpen(false)
+      }
+    }
+    const onEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [open])
+
+  return (
+    <div ref={rootRef} className="relative">
+      <label htmlFor={id} className="mb-2 block text-sm font-medium text-ink-muted">
+        {label}
+      </label>
+      <button
+        id={id}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+        className="input flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span>{selected?.label}</span>
+        <span className="text-ink-muted">▾</span>
+      </button>
+
+      {open ? (
+        <ul
+          role="listbox"
+          className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-cream-200 bg-white p-1 shadow-soft"
+        >
+          {options.map((option) => (
+            <li key={option.value}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(option.value)
+                  setOpen(false)
+                }}
+                className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                  option.value === value
+                    ? 'bg-sage/15 font-semibold text-sage-dark'
+                    : 'text-ink hover:bg-cream-100'
+                }`}
+              >
+                {option.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
 export default function RecipeLibrary() {
   const auth = useAuth()
   const { items: fridgeItems } = useFridge()
   const [searchParams, setSearchParams] = useSearchParams()
   const querySearch = searchParams.get('q') || ''
-  const queryCourse = searchParams.get('course') || 'All'
-  const queryMaxTime = searchParams.get('maxTime') || 'Any'
+  const rawQueryCourse = searchParams.get('course') || 'All'
+  const rawQueryMaxTime = searchParams.get('maxTime') || 'Any'
   const querySort = searchParams.get('sort') || 'relevance'
   const source = searchParams.get('source') || ''
+  const queryCourse = COURSE_OPTIONS.some((option) => option.value === rawQueryCourse)
+    ? rawQueryCourse
+    : 'All'
+  const queryMaxTime = MAX_TIME_OPTIONS.some((option) => option.value === rawQueryMaxTime)
+    ? rawQueryMaxTime
+    : 'Any'
   const [recipes, setRecipes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -117,21 +215,13 @@ export default function RecipeLibrary() {
               />
             </div>
             <div>
-              <label htmlFor="sortBy" className="mb-2 block text-sm font-medium text-ink-muted">
-                Sort by
-              </label>
-              <select
+              <StyledDropdown
                 id="sortBy"
+                label="Sort by"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="input w-full"
-              >
-                <option value="relevance">Best match</option>
-                <option value="expiring">Expiring soon</option>
-                <option value="cook_time">Cook time</option>
-                <option value="rating">Rating</option>
-                <option value="vote_count">Most votes</option>
-              </select>
+                onChange={setSortBy}
+                options={SORT_OPTIONS}
+              />
             </div>
             <div className="flex items-end">
               <button
@@ -146,37 +236,22 @@ export default function RecipeLibrary() {
           {filtersOpen && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label htmlFor="course" className="mb-2 block text-sm font-medium text-ink-muted">
-                  Meal type
-                </label>
-                <select
+                <StyledDropdown
                   id="course"
+                  label="Meal type"
                   value={course}
-                  onChange={(e) => setCourse(e.target.value)}
-                  className="input w-full"
-                >
-                  <option>All</option>
-                  <option>Breakfast</option>
-                  <option>Lunch</option>
-                  <option>Dinner</option>
-                </select>
+                  onChange={setCourse}
+                  options={COURSE_OPTIONS}
+                />
               </div>
               <div>
-                <label htmlFor="maxTime" className="mb-2 block text-sm font-medium text-ink-muted">
-                  Max cook time
-                </label>
-                <select
+                <StyledDropdown
                   id="maxTime"
+                  label="Max cook time"
                   value={maxTime}
-                  onChange={(e) => setMaxTime(e.target.value)}
-                  className="input w-full"
-                >
-                  <option>Any</option>
-                  <option value="15">Under 15 min</option>
-                  <option value="30">Under 30 min</option>
-                  <option value="45">Under 45 min</option>
-                  <option value="60">Under 60 min</option>
-                </select>
+                  onChange={setMaxTime}
+                  options={MAX_TIME_OPTIONS}
+                />
               </div>
             </div>
           )}

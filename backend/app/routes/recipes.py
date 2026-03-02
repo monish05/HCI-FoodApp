@@ -197,12 +197,13 @@ async def list_recipes(
         ingredients_lc = [ing.lower() for ing in ingredients]
         cook_minutes = _parse_total_minutes(doc.get("prep_time", ""), doc.get("cook_time", ""))
 
+        if max_time and cook_minutes and cook_minutes > max_time:
+            continue
+
         if not is_search and not ignore_prefs:
             if avoid_ingredients and any(
                 any(avoid in ing for ing in ingredients_lc) for avoid in avoid_ingredients
             ):
-                continue
-            if max_time and cook_minutes and cook_minutes > max_time:
                 continue
             if max_cook_time and cook_minutes and cook_minutes > max_cook_time:
                 continue
