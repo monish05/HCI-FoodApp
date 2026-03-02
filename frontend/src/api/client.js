@@ -103,6 +103,14 @@ export async function getRecipe(token, id) {
   return request(`/recipes/${id}`, { token })
 }
 
+export async function createRecipe(token, payload) {
+  return request('/recipes', { method: 'POST', body: payload, token })
+}
+
+export async function deleteRecipe(token, id) {
+  return request(`/recipes/${id}`, { method: 'DELETE', token })
+}
+
 export async function getSimilarRecipes(token, id) {
   return request(`/recipes/${id}/similar`, { token })
 }

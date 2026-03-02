@@ -2,14 +2,29 @@ import re
 from typing import List, Optional
 
 from bson import ObjectId
-
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
+from pydantic import BaseModel, Field
 
 from ..db import get_db
 from ..deps import get_current_user
 
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
+
+
+class RecipeCreate(BaseModel):
+    title: str = Field(..., min_length=1)
+    course: Optional[str] = None
+    diet: Optional[str] = None
+    cuisine: Optional[str] = None
+    prep_time: Optional[int] = Field(default=None, ge=0)
+    cook_time: Optional[int] = Field(default=None, ge=0)
+    total_time: Optional[int] = Field(default=None, ge=0)
+    image: Optional[str] = None
+    url: Optional[str] = None
+    ingredients: List[str] = Field(default_factory=list)
+    steps: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
 
 
 def _split_pipe(value: str) -> List[str]:
@@ -281,6 +296,84 @@ async def list_recipes(
     return {"recipes": trimmed}
 
 
+# -----------------------------
+# ADDED: CREATE RECIPE (POST)
+# -----------------------------
+@router.post("")
+async def create_recipe(payload: RecipeCreate, user=Depends(get_current_user)):
+    db = get_db()
+
+    title = (payload.title or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+
+    # Require at least 1 ingredient and 1 step
+    if not payload.ingredients or len([x for x in payload.ingredients if (x or "").strip()]) == 0:
+        raise HTTPException(status_code=400, detail="Ingredients are required")
+
+    if not payload.steps or len([x for x in payload.steps if (x or "").strip()]) == 0:
+        raise HTTPException(status_code=400, detail="Steps are required")
+
+    prep = int(payload.prep_time or 0)
+    cook = int(payload.cook_time or 0)
+    total_minutes = int(payload.total_time or (prep + cook) or 0)
+
+    ingredients_str = " | ".join(
+        [_clean_piece(x) for x in payload.ingredients if _clean_piece(x)]
+    )
+    instructions_str = " | ".join(
+        [_clean_piece(x) for x in payload.steps if _clean_piece(x)]
+    )
+    tags_str = " | ".join([_clean_piece(x) for x in (payload.tags or []) if _clean_piece(x)])
+
+    doc = {
+        "user_id": user["_id"],
+        "recipe_title": title,
+        "image": (payload.image or "").strip() or None,
+        "image_url": None,
+        "url": (payload.url or "").strip() or None,
+        "cuisine": (payload.cuisine or "").strip() or None,
+        "course": (payload.course or "").strip() or None,
+        "diet": (payload.diet or "").strip() or None,
+        # Keep your existing dataset format (strings), since your parser expects strings:
+        "prep_time": f"{prep} min" if prep else "",
+        "cook_time": f"{cook} min" if cook else "",
+        "ingredients": ingredients_str,
+        "instructions": instructions_str,
+        "tags": tags_str,
+        "rating": 0,
+        "vote_count": 0,
+        "total_time": total_minutes,
+        "source": "user",
+    }
+
+    result = await db.food_recipes.insert_one(doc)
+    created = await db.food_recipes.find_one({"_id": result.inserted_id})
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to create recipe")
+
+    cook_minutes = _parse_total_minutes(created.get("prep_time", ""), created.get("cook_time", ""))
+    return {
+        "recipe": {
+            "id": str(created.get("_id")),
+            "title": created.get("recipe_title"),
+            "image": _image_from_doc(created),
+            "url": created.get("url"),
+            "cuisine": created.get("cuisine"),
+            "course": created.get("course"),
+            "diet": created.get("diet"),
+            "prep_time": created.get("prep_time"),
+            "cook_time": created.get("cook_time"),
+            "total_time": cook_minutes,
+            "ingredients": _split_ingredients(created.get("ingredients", "")),
+            "instructions": _split_instructions(created.get("instructions", "")),
+            "tags": _split_pipe(created.get("tags", "")),
+            "rating": _parse_float(created.get("rating")),
+            "vote_count": _parse_int(created.get("vote_count")),
+        }
+    }
+
+
 @router.get("/filters")
 async def list_filters():
     db = get_db()
@@ -405,3 +498,26 @@ async def get_recipe(recipe_id: str, user=Depends(get_current_user)):
             "vote_count": _parse_int(doc.get("vote_count")),
         }
     }
+
+
+# -----------------------------
+# ADDED: DELETE RECIPE (DELETE)
+# -----------------------------
+@router.delete("/{recipe_id}")
+async def delete_recipe(recipe_id: str, user=Depends(get_current_user)):
+    db = get_db()
+
+    # Only allow deleting user-created recipes
+    query = {"user_id": user["_id"]}
+
+    try:
+        query["_id"] = ObjectId(recipe_id)
+    except Exception:
+        query["_id"] = recipe_id
+
+    result = await db.food_recipes.delete_one(query)
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Recipe not found (or not owned by user)")
+
+    return {"ok": True}
