@@ -1,7 +1,9 @@
 import os
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from .routes.auth import router as auth_router
 from .routes.fridge import router as fridge_router
@@ -34,3 +36,14 @@ app.include_router(users_router)
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+dist_dir = Path(__file__).resolve().parent.parent / "dist"
+if dist_dir.exists():
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        requested = dist_dir / full_path
+        if requested.is_file():
+            return FileResponse(requested)
+        return FileResponse(dist_dir / "index.html")
