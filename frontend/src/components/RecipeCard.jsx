@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom'
 import Badge from './Badge'
 
 export default function RecipeCard({ recipe, badgeLabel, ingredientStatus }) {
-  const { id, title, tags = [], cookTime, image } = recipe
+  const { id, title, tags = [], cookTime, totalTime, image, isExpiringSoon } = recipe
   const [imgError, setImgError] = useState(false)
   const showImage = image && !imgError
+  const displayTime = totalTime ?? cookTime
 
   return (
     <Link
       to={`/recipes/${id}`}
-      className="card card-lift group block min-w-0 overflow-hidden rounded-3xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
+      className="card card-lift group block min-w-0 overflow-hidden rounded-3xl transition-transform duration-300 ease-out hover:-translate-y-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
     >
       <div className="aspect-[4/3] overflow-hidden rounded-t-3xl bg-cream-200">
         {showImage ? (
@@ -41,14 +42,9 @@ export default function RecipeCard({ recipe, badgeLabel, ingredientStatus }) {
         <h3 className="line-clamp-2 text-lg font-semibold leading-snug text-ink sm:text-xl">
           {title}
         </h3>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="sage">{tag}</Badge>
-          ))}
-          {cookTime && (
-            <span className="text-sm text-ink-muted">· {cookTime} min</span>
-          )}
-        </div>
+        {displayTime && (
+          <p className="mt-2 text-sm text-ink-muted">{displayTime} min</p>
+        )}
       </div>
     </Link>
   )

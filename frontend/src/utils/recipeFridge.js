@@ -12,6 +12,7 @@ export function ingredientInFridge(ingredient, fridgeItems) {
 }
 
 export function getRecipeIngredients(recipe) {
+  if (!recipe) return []
   return (recipe.ingredients && recipe.ingredients.length > 0 ? recipe.ingredients : recipe.useUpSoon) || []
 }
 
