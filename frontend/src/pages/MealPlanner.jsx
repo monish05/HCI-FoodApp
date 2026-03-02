@@ -313,6 +313,7 @@ export default function MealPlanner() {
   }, [weekStart])
 
   const isPastWeek = weekEndKey < todayKey
+  const isReadOnlyWeek = isPastWeek
 
   useEffect(() => {
     if (!selectedSlot) return
@@ -513,7 +514,7 @@ export default function MealPlanner() {
       })),
     }
 
-    setPlan(nextPlan) // optimistic so you see it instantly
+    setPlan(nextPlan)
     setAddTabOpen(false)
     setNewTabName('')
     setNewTabError('')
@@ -545,7 +546,6 @@ export default function MealPlanner() {
               <span className="ml-2">
                 • {assignedCount}/{totalSlots} meals planned
               </span>
-              {isPastWeek ? <span className="ml-2 text-amber-700">• Archived week (read-only)</span> : null}
               {saving ? <span className="ml-2 text-sage-dark">Saving…</span> : null}
             </div>
 
@@ -554,16 +554,20 @@ export default function MealPlanner() {
                 {mealTypes.map((slot) => (
                   <span
                     key={slot}
-                    className="inline-flex items-center gap-2 rounded-full border border-cream-200 bg-white px-3 py-1 text-xs font-semibold text-ink-muted"
+                    className={[
+                      'inline-flex items-center gap-2 rounded-full border border-cream-200 bg-white px-3 py-1 text-xs font-semibold',
+                      isReadOnlyWeek ? 'opacity-60' : 'text-ink-muted',
+                    ].join(' ')}
                     title={slot}
                   >
                     {titleizeMealType(slot)}
                     <button
                       type="button"
                       onClick={() => removeMealType(slot)}
-                      disabled={isPastWeek}
+                      disabled={isReadOnlyWeek}
                       className="rounded-full border border-cream-200 bg-cream-50 px-2 py-0.5 text-xs font-bold text-ink-muted hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-60"
                       aria-label={`Remove ${slot}`}
+                      title={isReadOnlyWeek ? 'Archived weeks are read-only' : `Remove ${slot}`}
                     >
                       −
                     </button>
@@ -574,14 +578,23 @@ export default function MealPlanner() {
               <button
                 type="button"
                 onClick={openAddTab}
-                disabled={isPastWeek}
+                disabled={isReadOnlyWeek}
                 className="rounded-full border border-cream-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-60"
+                title={isReadOnlyWeek ? 'Archived weeks are read-only' : 'Add tab'}
               >
                 + Add tab
               </button>
             </div>
           </div>
         </div>
+
+        {/* Message ONLY on previous (archived) weeks */}
+        {isReadOnlyWeek ? (
+          <div className="mb-6 rounded-2xl border border-cream-200 bg-cream-50 px-4 py-3 text-sm text-ink-muted">
+            <span className="font-semibold text-ink">Archived week:</span> You can view previous meal plans, but
+            actions are disabled.
+          </div>
+        ) : null}
 
         {error ? <div className="card mb-6 rounded-3xl p-6 text-sm text-tomato-dark">{error}</div> : null}
 
@@ -597,120 +610,154 @@ export default function MealPlanner() {
               <div className="card rounded-3xl p-8 text-center text-ink-muted">Loading week plan…</div>
             ) : (
               <div className="space-y-4">
-                {plan.days.map((day, dayIndex) => (
-                  <article key={day.date} className="card rounded-3xl p-5 sm:p-6">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-ink">{day.day}</h3>
-                        <p className="text-sm text-ink-muted">{formatDateKey(day.date)}</p>
-                      </div>
-                      {day.date < todayKey || isPastWeek ? (
+                {plan.days.map((day, dayIndex) => {
+                  const isLocked = isReadOnlyWeek || day.date < todayKey
+
+                  return (
+                    <article
+                      key={day.date}
+                      className={[
+                        'card rounded-3xl p-5 sm:p-6',
+                        isReadOnlyWeek ? 'opacity-85 grayscale-[15%]' : '',
+                      ].join(' ')}
+                    >
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-ink">{day.day}</h3>
+                          <p className="text-sm text-ink-muted">{formatDateKey(day.date)}</p>
+                        </div>
+
+                        {/* Always visible, but disabled when locked */}
                         <button
                           type="button"
-                          onClick={() => setLockNotice('This day is in the past and is read-only.')}
-                          className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
-                        >
-                          Locked
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => clearDay(dayIndex)}
-                          className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+                          onClick={() => {
+                            if (isLocked) return
+                            clearDay(dayIndex)
+                          }}
+                          disabled={isLocked}
+                          className={[
+                            'rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold',
+                            isLocked
+                              ? 'cursor-not-allowed bg-cream-50 text-ink-muted/70 opacity-70'
+                              : 'text-ink-muted hover:bg-cream-100',
+                          ].join(' ')}
+                          title={isLocked ? 'This day is read-only' : 'Clear day'}
                         >
                           Clear day
                         </button>
-                      )}
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <div
-                        className="grid gap-3"
-                        style={{
-                          gridTemplateColumns: `repeat(${mealTypes.length}, minmax(220px, 1fr))`,
-                        }}
-                      >
-                        {mealTypes.map((mealType) => {
-                          const meal = day.meals?.[mealType]
-                          const isLocked = day.date < todayKey || isPastWeek
-                          return (
-                            <div key={mealType} className="rounded-2xl border border-cream-200 bg-cream-50 p-3">
-                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                                {titleizeMealType(mealType)}
-                              </p>
-                              {meal ? (
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 overflow-hidden rounded-lg bg-cream-200">
-                                      {meal.image ? (
-                                        <img src={meal.image} alt="" className="h-full w-full object-cover" />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center">🍽️</div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-semibold text-ink">{meal.title}</p>
-                                      <p className="text-xs text-ink-muted">
-                                        {meal.totalTime ? `${meal.totalTime} min` : 'No time'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => meal.id && navigate(`/recipes/${meal.id}`)}
-                                      className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
-                                    >
-                                      View recipe
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (isLocked) {
-                                          setLockNotice('This slot is in the past and cannot be changed.')
-                                          return
-                                        }
-                                        clearSlot(dayIndex, mealType)
-                                      }}
-                                      className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (isLocked) {
-                                      setLockNotice('Past slots cannot be edited.')
-                                      return
-                                    }
-                                    openAssignModal(dayIndex, mealType)
-                                  }}
-                                  className="w-full rounded-xl border border-dashed border-cream-300 bg-white px-3 py-6 text-sm font-medium text-ink-muted hover:bg-cream-100"
-                                >
-                                  + Add recipe
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })}
                       </div>
-                    </div>
-                  </article>
-                ))}
+
+                      <div className="overflow-x-auto">
+                        <div
+                          className="grid gap-3"
+                          style={{
+                            gridTemplateColumns: `repeat(${mealTypes.length}, minmax(220px, 1fr))`,
+                          }}
+                        >
+                          {mealTypes.map((mealType) => {
+                            const meal = day.meals?.[mealType]
+                            return (
+                              <div
+                                key={mealType}
+                                className={[
+                                  'rounded-2xl border border-cream-200 bg-cream-50 p-3',
+                                  isReadOnlyWeek ? 'opacity-90' : '',
+                                ].join(' ')}
+                              >
+                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                                  {titleizeMealType(mealType)}
+                                </p>
+
+                                {meal ? (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-10 w-10 overflow-hidden rounded-lg bg-cream-200">
+                                        {meal.image ? (
+                                          <img src={meal.image} alt="" className="h-full w-full object-cover" />
+                                        ) : (
+                                          <div className="flex h-full w-full items-center justify-center">🍽️</div>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-semibold text-ink">{meal.title}</p>
+                                        <p className="text-xs text-ink-muted">
+                                          {meal.totalTime ? `${meal.totalTime} min` : 'No time'}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {/* still usable on archived weeks */}
+                                      <button
+                                        type="button"
+                                        onClick={() => meal.id && navigate(`/recipes/${meal.id}`)}
+                                        className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+                                      >
+                                        View recipe
+                                      </button>
+
+                                      {/* visible but disabled on archived/past days */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (isLocked) return
+                                          clearSlot(dayIndex, mealType)
+                                        }}
+                                        disabled={isLocked}
+                                        className={[
+                                          'rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold',
+                                          isLocked
+                                            ? 'cursor-not-allowed bg-cream-50 text-ink-muted/70 opacity-70'
+                                            : 'text-ink-muted hover:bg-cream-100',
+                                        ].join(' ')}
+                                        title={isLocked ? 'This slot is read-only' : 'Remove'}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isLocked) return
+                                      openAssignModal(dayIndex, mealType)
+                                    }}
+                                    disabled={isLocked}
+                                    className={[
+                                      'w-full rounded-xl border border-dashed border-cream-300 px-3 py-6 text-sm font-medium',
+                                      isLocked
+                                        ? 'cursor-not-allowed bg-white/70 text-ink-muted/70 opacity-70'
+                                        : 'bg-white text-ink-muted hover:bg-cream-100',
+                                    ].join(' ')}
+                                    title={isLocked ? 'This slot is read-only' : 'Add recipe'}
+                                  >
+                                    + Add recipe
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </article>
+                  )
+                })}
+
                 <div className="flex justify-end">
+                  {/* Visible but disabled on archived weeks */}
                   <button
                     type="button"
                     onClick={() => {
-                      if (isPastWeek) {
-                        setLockNotice('Past weeks are archived and cannot be cleared.')
-                        return
-                      }
+                      if (isReadOnlyWeek) return
                       setConfirmClearWeekOpen(true)
                     }}
-                    className="rounded-full bg-rose-600 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                    disabled={isReadOnlyWeek}
+                    className={[
+                      'rounded-full px-5 py-2 text-sm font-semibold text-white',
+                      isReadOnlyWeek ? 'cursor-not-allowed bg-rose-300 opacity-70' : 'bg-rose-600 hover:bg-rose-700',
+                    ].join(' ')}
+                    title={isReadOnlyWeek ? 'Archived weeks are read-only' : 'Clear full week'}
                   >
                     Clear full week
                   </button>
@@ -940,11 +987,7 @@ export default function MealPlanner() {
           </div>
         </Modal>
 
-        <Modal
-          isOpen={confirmClearWeekOpen}
-          onClose={() => setConfirmClearWeekOpen(false)}
-          title="Clear full week"
-        >
+        <Modal isOpen={confirmClearWeekOpen} onClose={() => setConfirmClearWeekOpen(false)} title="Clear full week">
           <p className="text-sm text-ink-muted">
             This removes all planned meals for {formatWeekRange(weekStart)}. This cannot be undone.
           </p>
