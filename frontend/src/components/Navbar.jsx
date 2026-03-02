@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const navItems = [
   { to: '/', label: 'Home' },
@@ -11,14 +12,38 @@ const navItems = [
 ]
 
 export default function Navbar() {
+  const auth = useAuth()
+  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const location = useLocation()
 
   const closeMenu = () => setMenuOpen(false)
+  const handleLogout = () => {
+    auth.logout()
+    navigate('/login', { replace: true })
+  }
+
+  const profileLabel = useMemo(() => {
+    if (auth.userName) return auth.userName
+    if (auth.userEmail) return auth.userEmail.split('@')[0]
+    return 'Profile'
+  }, [auth.userEmail, auth.userName])
 
   useEffect(() => {
     setMenuOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!profileOpen) return
+    const handleClick = (event) => {
+      if (!event.target.closest('[data-profile-menu]')) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [profileOpen])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -44,7 +69,7 @@ export default function Navbar() {
           </NavLink>
 
           {/* Desktop: horizontal nav */}
-          <ul className="hidden min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto py-1 scrollbar-hide md:flex md:gap-2">
+          <ul className="hidden min-w-0 flex-1 items-center justify-end gap-1 py-1 md:flex md:gap-2">
             {navItems.map(({ to, label }) => (
               <li key={to} className="shrink-0">
                 <NavLink
@@ -61,6 +86,39 @@ export default function Navbar() {
                 </NavLink>
               </li>
             ))}
+            <li className="relative shrink-0" data-profile-menu>
+              <button
+                type="button"
+                onClick={() => setProfileOpen((prev) => !prev)}
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-sage/10 px-4 py-2.5 text-sm font-semibold text-sage-dark transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-sage/20"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+              >
+                {profileLabel}
+              </button>
+              {profileOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-48 rounded-2xl bg-white shadow-soft-lg ring-1 ring-ink/5"
+                  role="menu"
+                >
+                  <NavLink
+                    to="/profile"
+                    className="block px-4 py-2.5 text-sm text-ink hover:bg-cream-100 rounded-t-2xl"
+                    role="menuitem"
+                  >
+                    Profile
+                  </NavLink>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="block w-full px-4 py-2.5 text-left text-sm text-tomato-dark hover:bg-cream-100 rounded-b-2xl"
+                    role="menuitem"
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+            </li>
           </ul>
 
           {/* Mobile: menu button */}
@@ -125,6 +183,27 @@ export default function Navbar() {
                 </li>
               )
             })}
+            <li>
+              <NavLink
+                to="/profile"
+                onClick={closeMenu}
+                className="flex min-h-14 items-center rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
+              >
+                Profile
+              </NavLink>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => {
+                  closeMenu()
+                  handleLogout()
+                }}
+                className="flex min-h-14 w-full items-center rounded-2xl px-4 text-base font-medium text-ink-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100 hover:text-ink"
+              >
+                Log out
+              </button>
+            </li>
           </ul>
         </div>
       </aside>

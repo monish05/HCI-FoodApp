@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import RecipeCard from '../components/RecipeCard'
 import FilterPill from '../components/FilterPill'
-import { recipes } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
 import { scoreRecipe, getRecipeIngredients, ingredientInFridge } from '../utils/recipeFridge'
+import { getRecipes } from '../api/client'
+import { adaptRecipe } from '../utils/recipeAdapter'
+import { useAuth } from '../context/AuthContext'
 
 const FILTERS = [
   { value: null, label: 'All' },
@@ -14,9 +16,41 @@ const FILTERS = [
 ]
 
 export default function Home() {
+  const auth = useAuth()
   const { items: fridgeItems } = useFridge()
+  const [recipes, setRecipes] = useState([])
+  const [topRated, setTopRated] = useState([])
+  const [fallbackRecipes, setFallbackRecipes] = useState([])
+  const [loading, setLoading] = useState(true)
   const useUpSoonItems = fridgeItems.filter((i) => i.daysLeft <= 2)
-  const [filter, setFilter] = useState(null)
+  const [filter, setFilter] = useState('Quick')
+  const [activeTab, setActiveTab] = useState('quick')
+
+  useEffect(() => {
+    let isMounted = true
+    async function loadRecipes() {
+      try {
+        const [data, topRatedData, fallbackData] = await Promise.all([
+          getRecipes(auth.token, { limit: 120 }),
+          getRecipes(auth.token, { limit: 8, sort: 'rating' }),
+          getRecipes(auth.token, { limit: 120, sort: 'rating', ignore_prefs: true }),
+        ])
+        if (!isMounted) return
+        setRecipes((data.recipes || []).map(adaptRecipe))
+        setTopRated((topRatedData.recipes || []).map(adaptRecipe))
+        setFallbackRecipes((fallbackData.recipes || []).map(adaptRecipe))
+      } catch {
+        if (!isMounted) return
+        setRecipes([])
+        setTopRated([])
+        setFallbackRecipes([])
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+    loadRecipes()
+    return () => { isMounted = false }
+  }, [auth.token])
 
   const suggestedRecipes = useMemo(() => {
     let list = [...recipes]
@@ -31,8 +65,46 @@ export default function Home() {
     }
 
     list.sort((a, b) => (a.recipe.cookTime ?? 999) - (b.recipe.cookTime ?? 999))
-    return list.map(({ recipe }) => recipe).slice(0, 6)
-  }, [fridgeItems, filter])
+    return list.map(({ recipe }) => recipe).slice(0, 12)
+  }, [fridgeItems, filter, recipes])
+
+  const quickRecipes = useMemo(() => {
+    const source = recipes.length > 0 ? recipes : fallbackRecipes
+    return [...source]
+      .filter((recipe) => (recipe.cookTime ?? 999) <= 30)
+      .map((recipe) => ({
+        recipe,
+        ...scoreRecipe(recipe, fridgeItems),
+      }))
+      .sort((a, b) => {
+        if (a.canMake !== b.canMake) return a.canMake ? -1 : 1
+        const ratioA = a.total ? a.matchCount / a.total : 0
+        const ratioB = b.total ? b.matchCount / b.total : 0
+        if (ratioA !== ratioB) return ratioB - ratioA
+        return (a.recipe.cookTime ?? 999) - (b.recipe.cookTime ?? 999)
+      })
+      .map(({ recipe }) => recipe)
+      .slice(0, 12)
+  }, [recipes, fallbackRecipes, fridgeItems])
+
+  const matchesFilter = (recipe, value) => {
+    if (value === 'Quick' || value === 'Meatless') {
+      return (recipe.tags || []).includes(value)
+    }
+    if (value === 30) {
+      return (recipe.cookTime ?? 999) <= 30
+    }
+    return true
+  }
+
+  const featuredByFilter = useMemo(() => {
+    return FILTERS.filter((f) => f.value !== null)
+      .map((f) => ({
+        label: f.label,
+        recipe: recipes.find((r) => matchesFilter(r, f.value)),
+      }))
+      .filter((entry) => entry.recipe)
+  }, [recipes])
 
   const canMakeCount = useMemo(() => {
     return recipes.filter((r) => {
@@ -57,57 +129,94 @@ export default function Home() {
           <section className="mb-6">
             <h2 className="text-sm font-semibold text-ink-muted mb-2">Use up soon</h2>
             <div className="flex flex-wrap gap-2">
-              {useUpSoonItems.slice(0, 8).map((item) => (
-                <span
+              {useUpSoonItems.slice(0, 3).map((item) => (
+                <a
                   key={item.id}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-tomato/10 px-3 py-1.5 text-xs font-medium text-tomato-dark"
+                  href={`/recipes?q=${encodeURIComponent(item.name)}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-tomato/10 px-2.5 py-1 text-xs font-medium text-tomato-dark transition hover:bg-tomato/20"
                 >
-                  {item.name} <span className="opacity-80">({item.daysLeft}d)</span>
-                </span>
+                  {item.name} <span className="opacity-70">· {item.daysLeft}d</span>
+                </a>
               ))}
             </div>
           </section>
         )}
 
         <section className="mb-4">
-          <h2 className="text-lg font-bold text-ink">Suggested for you</h2>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {FILTERS.map(({ value, label }) => (
-              <FilterPill
-                key={label}
-                label={label}
-                active={filter === value}
-                onClick={() => setFilter(value)}
-              />
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('quick')}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                activeTab === 'quick'
+                  ? 'bg-sage text-white shadow-soft'
+                  : 'border border-cream-200 bg-white text-ink-muted hover:bg-cream-100'
+              }`}
+            >
+              Quick picks
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('top')}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                activeTab === 'top'
+                  ? 'bg-sage text-white shadow-soft'
+                  : 'border border-cream-200 bg-white text-ink-muted hover:bg-cream-100'
+              }`}
+            >
+              Top rated
+            </button>
           </div>
+          <p className="mt-2 text-sm text-ink-muted">
+            {activeTab === 'quick'
+              ? 'Under 30 minutes, ready to cook.'
+              : 'Popular recipes picked by ratings.'}
+          </p>
         </section>
 
-        {suggestedRecipes.length === 0 ? (
+        {loading ? (
           <p className="py-8 text-center text-sm text-ink-muted">
-            {canMakeCount === 0
-              ? 'Add ingredients to your fridge to see recipes you can make.'
-              : 'No recipes match. Clear the filter above.'}
-            {filter !== null && (
-              <button
-                type="button"
-                onClick={() => setFilter(null)}
-                className="ml-2 font-medium text-sage-dark hover:underline"
-              >
-                Clear
-              </button>
-            )}
+            Loading recipes...
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-            {suggestedRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                badgeLabel="You can make this"
-              />
-            ))}
-          </div>
+          <>
+            {activeTab === 'quick' ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+                {(quickRecipes.length > 0 ? quickRecipes : fallbackRecipes.slice(0, 9)).slice(0, 9).map((recipe) => {
+                  const { canMake, matchCount, total } = scoreRecipe(recipe, fridgeItems)
+                  const ingredientStatus = !canMake && total > 0
+                    ? matchCount > 0
+                      ? `You have ${matchCount}/${total} ingredients`
+                      : `Needs ${total} ingredients`
+                    : undefined
+                  return (
+                    <RecipeCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      badgeLabel={canMake ? 'You can make this' : undefined}
+                      ingredientStatus={ingredientStatus}
+                    />
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+                {(topRated.length > 0 ? topRated : fallbackRecipes.slice(0, 9)).slice(0, 9).map((recipe) => (
+                  <RecipeCard key={recipe.id} recipe={recipe} />
+                ))}
+              </div>
+            )}
+            {fridgeItems.length === 0 && (
+              <div className="mt-8 rounded-3xl bg-cream-100/80 p-4 text-center">
+                <p className="text-sm font-medium text-ink">
+                  Add items to your fridge to get better suggestions.
+                </p>
+                <a href="/fridge" className="btn-primary mt-3 inline-flex">
+                  Add items to your fridge
+                </a>
+              </div>
+            )}
+          </>
         )}
       </div>
     </PageContainer>

@@ -1,9 +1,9 @@
 import { useState, useMemo, useRef } from 'react'
 import Modal from './Modal'
 import { useFridge } from '../context/FridgeContext'
-import { FRIDGE_UNITS } from '../data/mockData'
 
 const MODES = { receipt: 'From receipt', manual: 'Add one item' }
+const CATEGORIES = ['Produce', 'Dairy', 'Protein', 'Pantry', 'Other']
 
 // Parse "2 Milk" or "Milk" -> { name, amount }
 function parseLine(line) {
@@ -22,9 +22,9 @@ export default function AddItemModal({ isOpen, onClose }) {
 
   // Manual form
   const [newName, setNewName] = useState('')
-  const [newAmount, setNewAmount] = useState('1')
-  const [newUnit, setNewUnit] = useState('count')
+  const [newCount, setNewCount] = useState('1')
   const [newDays, setNewDays] = useState(5)
+  const [newCategory, setNewCategory] = useState('Other')
 
   // From receipt
   const [receiptText, setReceiptText] = useState('')
@@ -41,9 +41,9 @@ export default function AddItemModal({ isOpen, onClose }) {
 
   const reset = () => {
     setNewName('')
-    setNewAmount('1')
-    setNewUnit('count')
+    setNewCount('1')
     setNewDays(5)
+    setNewCategory('Other')
     setReceiptText('')
     setReceiptDays(7)
     setAddedCount(0)
@@ -71,9 +71,9 @@ export default function AddItemModal({ isOpen, onClose }) {
     if (parsed.length === 0) return
     const items = parsed.map((p) => ({
       name: p.name,
-      amount: p.amount,
-      unit: 'count',
+      count: p.amount,
       daysLeft: receiptDays,
+      category: 'Other',
     }))
     const count = addItems(items)
     setAddedCount((c) => c + count)
@@ -84,9 +84,9 @@ export default function AddItemModal({ isOpen, onClose }) {
     if (!newName.trim()) return
     addItem({
       name: newName.trim(),
-      amount: Number(newAmount) || 1,
-      unit: newUnit,
+      count: Number(newCount) || 1,
       daysLeft: Number(newDays) || 5,
+      category: newCategory,
     })
     handleClose()
   }
@@ -162,26 +162,24 @@ export default function AddItemModal({ isOpen, onClose }) {
               />
             </div>
 
+            <div className="flex items-center gap-4">
+              <label htmlFor="receipt-days" className="text-sm text-ink-muted">
+                Days until expiry
+              </label>
+              <input
+                id="receipt-days"
+                type="number"
+                min="1"
+                max="30"
+                value={receiptDays}
+                onChange={(e) => setReceiptDays(Number(e.target.value) || 7)}
+                className="input w-20"
+              />
+            </div>
             {parsed.length > 0 && (
-              <>
-                <p className="text-sm font-medium text-ink">
-                  {parsed.length} item{parsed.length !== 1 ? 's' : ''} → fridge
-                </p>
-                <div className="flex items-center gap-4">
-                  <label htmlFor="receipt-days" className="text-sm text-ink-muted">
-                    Days until expiry
-                  </label>
-                  <input
-                    id="receipt-days"
-                    type="number"
-                    min="1"
-                    max="30"
-                    value={receiptDays}
-                    onChange={(e) => setReceiptDays(Number(e.target.value) || 7)}
-                    className="input w-20"
-                  />
-                </div>
-              </>
+              <p className="text-sm font-medium text-ink">
+                {parsed.length} item{parsed.length !== 1 ? 's' : ''} → fridge
+              </p>
             )}
 
             {addedCount > 0 && (
@@ -222,34 +220,34 @@ export default function AddItemModal({ isOpen, onClose }) {
                 autoFocus
               />
             </div>
-            <div className="grid grid-cols-[1fr_auto] gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="add-amount" className="mb-1.5 block text-sm font-medium text-ink">
-                  Amount
+                <label htmlFor="add-count" className="mb-1.5 block text-sm font-medium text-ink">
+                  Count
                 </label>
                 <input
-                  id="add-amount"
+                  id="add-count"
                   type="number"
-                  min="0.25"
-                  step="0.25"
-                  value={newAmount}
-                  onChange={(e) => setNewAmount(e.target.value)}
-                  placeholder="2"
+                  min="1"
+                  step="1"
+                  value={newCount}
+                  onChange={(e) => setNewCount(e.target.value)}
+                  placeholder="1"
                   className="input w-full"
                 />
               </div>
-              <div className="min-w-0">
-                <label htmlFor="add-unit" className="mb-1.5 block text-sm font-medium text-ink">
-                  Unit
+              <div>
+                <label htmlFor="add-category" className="mb-1.5 block text-sm font-medium text-ink">
+                  Category
                 </label>
                 <select
-                  id="add-unit"
-                  value={newUnit}
-                  onChange={(e) => setNewUnit(e.target.value)}
-                  className="input min-w-[7rem] w-full"
+                  id="add-category"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="input w-full"
                 >
-                  {FRIDGE_UNITS.map(({ value, label }) => (
-                    <option key={value} value={value}>{label}</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>

@@ -1,15 +1,7 @@
-import Badge from './Badge'
-
-function getExpiryVariant(daysLeft) {
-  if (daysLeft <= 2) return 'tomato'
-  if (daysLeft <= 5) return 'amber'
-  return 'sage'
-}
-
-// Single consistent avatar style for all fridge items
-const AVATAR_STYLE = 'bg-cream-300 text-ink'
-
 function formatQuantity(item) {
+  if (item.count != null) {
+    return `Count: ${item.count}`
+  }
   if (item.amount != null && item.unit) {
     const u = item.unit
     const a = item.amount
@@ -20,36 +12,67 @@ function formatQuantity(item) {
   return item.quantity ?? '—'
 }
 
-export default function IngredientCard({ item, onRemove }) {
-  const { name, daysLeft } = item
-  const variant = getExpiryVariant(daysLeft)
-  const label = daysLeft === 1 ? '1 day' : `${daysLeft} days`
-  const initial = (name || '?').charAt(0).toUpperCase()
+function displayName(value) {
+  return (value || '')
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s*\[[^\]]*\]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+export default function IngredientCard({
+  item,
+  onIncrement,
+  onSelect,
+}) {
+  const { name } = item
   const quantityText = formatQuantity(item)
+  const initial = displayName(name).charAt(0).toUpperCase() || '?'
 
   return (
-    <article className="card card-lift flex min-w-0 items-center gap-4 rounded-3xl p-5 transition-all duration-200 ease-out sm:gap-5 sm:p-6">
+    <article
+      className="card group inline-flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-cream-200 bg-white p-5 text-center shadow-soft transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-sage/40 hover:shadow-soft-lg"
+      onClick={() => onSelect?.(item)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') onSelect?.(item)
+      }}
+    >
       <div
-        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold sm:h-14 sm:w-14 sm:text-2xl ${AVATAR_STYLE}`}
+        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cream-300 text-lg font-semibold text-ink"
         aria-hidden
       >
         {initial}
       </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-base font-semibold text-ink leading-tight">{name}</h3>
-        <p className="mt-0.5 truncate text-sm text-ink-muted leading-relaxed">{quantityText}</p>
-      </div>
-      <Badge variant={variant} className="shrink-0">{label} left</Badge>
-      {onRemove && (
+      <h3 className="text-base font-semibold text-ink leading-tight">{displayName(name)}</h3>
+      <span className="inline-flex items-center rounded-full bg-cream-100 px-2.5 py-1 text-xs font-semibold text-ink-muted">
+        {quantityText}
+      </span>
+      <div className="mt-1 flex w-full items-center justify-center gap-2">
         <button
           type="button"
-          onClick={() => onRemove(item)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-tomato/10 hover:text-tomato focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
-          aria-label={`Remove ${name} from fridge`}
+          onClick={(event) => {
+            event.stopPropagation()
+            onSelect?.(item)
+          }}
+          className="inline-flex flex-1 items-center justify-center rounded-full border border-cream-200 bg-white px-3 py-2 text-xs font-semibold text-ink-muted shadow-soft transition hover:bg-cream-100"
         >
-          ×
+          Details
         </button>
-      )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation()
+            onIncrement?.(item)
+          }}
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-sage px-3 py-2 text-xs font-semibold text-white shadow-soft transition hover:bg-sage-dark active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
+          aria-label={`Add ${name}`}
+        >
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/20 text-sm leading-none">+</span>
+          Add
+        </button>
+      </div>
     </article>
   )
 }
