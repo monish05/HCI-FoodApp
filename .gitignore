@@ -27,3 +27,4 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+backend/data/food_recipes.csv
