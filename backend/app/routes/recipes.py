@@ -192,7 +192,17 @@ async def list_recipes(
     avoid_ingredients = _normalize_list(prefs.get("avoid_ingredients", []))
     max_cook_time = prefs.get("max_cook_time")
 
-    query = {}
+    # ✅ privacy filter: show catalog + this user's custom recipes
+    and_filters = []
+    and_filters.append({
+        "$or": [
+            {"user_id": user["_id"]},          # user-created recipes (private)
+            {"user_id": {"$exists": False}},   # catalog recipes (shared)
+            {"user_id": None},                 # legacy safety
+        ]
+    })
+
+    # search filter
     or_filters = []
     is_search = bool(q and q.strip())
     if is_search:
@@ -200,10 +210,13 @@ async def list_recipes(
         or_filters.append({"recipe_title": {"$regex": q_value, "$options": "i"}})
         or_filters.append({"tags": {"$regex": q_value, "$options": "i"}})
         or_filters.append({"ingredients": {"$regex": q_value, "$options": "i"}})
-    if or_filters:
-        query["$or"] = or_filters
+        if or_filters:
+            and_filters.append({"$or": or_filters})
+
     if course and course.strip():
-        query["course"] = {"$regex": f"^{re.escape(course.strip())}$", "$options": "i"}
+        and_filters.append({"course": {"$regex": f"^{re.escape(course.strip())}$", "$options": "i"}})
+
+    query = {"$and": and_filters} if and_filters else {}
 
     cursor = db.food_recipes.find(query).limit(1000)
     results = []
@@ -259,6 +272,8 @@ async def list_recipes(
                 "_can_make": can_make,
                 "expiring_score": expiring_score,
                 "is_expiring_soon": is_expiring_soon,
+                # ✅ for frontend
+                "source": doc.get("source") or ("user" if doc.get("user_id") else "catalog"),
             }
         )
 
@@ -296,9 +311,6 @@ async def list_recipes(
     return {"recipes": trimmed}
 
 
-# -----------------------------
-# ADDED: CREATE RECIPE (POST)
-# -----------------------------
 @router.post("")
 async def create_recipe(payload: RecipeCreate, user=Depends(get_current_user)):
     db = get_db()
@@ -307,7 +319,6 @@ async def create_recipe(payload: RecipeCreate, user=Depends(get_current_user)):
     if not title:
         raise HTTPException(status_code=400, detail="Title is required")
 
-    # Require at least 1 ingredient and 1 step
     if not payload.ingredients or len([x for x in payload.ingredients if (x or "").strip()]) == 0:
         raise HTTPException(status_code=400, detail="Ingredients are required")
 
@@ -318,16 +329,14 @@ async def create_recipe(payload: RecipeCreate, user=Depends(get_current_user)):
     cook = int(payload.cook_time or 0)
     total_minutes = int(payload.total_time or (prep + cook) or 0)
 
-    ingredients_str = " | ".join(
-        [_clean_piece(x) for x in payload.ingredients if _clean_piece(x)]
-    )
-    instructions_str = " | ".join(
-        [_clean_piece(x) for x in payload.steps if _clean_piece(x)]
-    )
+    ingredients_str = " | ".join([_clean_piece(x) for x in payload.ingredients if _clean_piece(x)])
+    instructions_str = " | ".join([_clean_piece(x) for x in payload.steps if _clean_piece(x)])
     tags_str = " | ".join([_clean_piece(x) for x in (payload.tags or []) if _clean_piece(x)])
 
     doc = {
         "user_id": user["_id"],
+        "source": "user",
+
         "recipe_title": title,
         "image": (payload.image or "").strip() or None,
         "image_url": None,
@@ -335,7 +344,7 @@ async def create_recipe(payload: RecipeCreate, user=Depends(get_current_user)):
         "cuisine": (payload.cuisine or "").strip() or None,
         "course": (payload.course or "").strip() or None,
         "diet": (payload.diet or "").strip() or None,
-        # Keep your existing dataset format (strings), since your parser expects strings:
+
         "prep_time": f"{prep} min" if prep else "",
         "cook_time": f"{cook} min" if cook else "",
         "ingredients": ingredients_str,
@@ -344,7 +353,6 @@ async def create_recipe(payload: RecipeCreate, user=Depends(get_current_user)):
         "rating": 0,
         "vote_count": 0,
         "total_time": total_minutes,
-        "source": "user",
     }
 
     result = await db.food_recipes.insert_one(doc)
@@ -370,6 +378,7 @@ async def create_recipe(payload: RecipeCreate, user=Depends(get_current_user)):
             "tags": _split_pipe(created.get("tags", "")),
             "rating": _parse_float(created.get("rating")),
             "vote_count": _parse_int(created.get("vote_count")),
+            "source": "user",
         }
     }
 
@@ -461,6 +470,7 @@ async def get_similar(recipe_id: str, user=Depends(get_current_user)):
                 "tags": _split_pipe(item.get("tags", "")),
                 "rating": _parse_float(item.get("rating")),
                 "vote_count": _parse_int(item.get("vote_count")),
+                "source": item.get("source") or ("user" if item.get("user_id") else "catalog"),
             }
         )
 
@@ -496,24 +506,21 @@ async def get_recipe(recipe_id: str, user=Depends(get_current_user)):
             "tags": _split_pipe(doc.get("tags", "")),
             "rating": _parse_float(doc.get("rating")),
             "vote_count": _parse_int(doc.get("vote_count")),
+            "source": doc.get("source") or ("user" if doc.get("user_id") else "catalog"),
         }
     }
 
 
-# -----------------------------
-# ADDED: DELETE RECIPE (DELETE)
-# -----------------------------
 @router.delete("/{recipe_id}")
 async def delete_recipe(recipe_id: str, user=Depends(get_current_user)):
     db = get_db()
 
-    # Only allow deleting user-created recipes
-    query = {"user_id": user["_id"]}
+    base_query = {"user_id": user["_id"], "source": "user"}
 
     try:
-        query["_id"] = ObjectId(recipe_id)
+        query = {**base_query, "_id": ObjectId(recipe_id)}
     except Exception:
-        query["_id"] = recipe_id
+        query = {**base_query, "_id": recipe_id}
 
     result = await db.food_recipes.delete_one(query)
 

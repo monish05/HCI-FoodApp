@@ -7,7 +7,8 @@ import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
-const MEAL_TYPES = ['breakfast', 'lunch', 'dinner']
+const DEFAULT_MEAL_TYPES = ['breakfast', 'lunch', 'dinner']
+const MAX_MEAL_TYPES = 10
 
 function startOfWeek(date = new Date()) {
   const next = new Date(date)
@@ -26,7 +27,10 @@ function formatWeekRange(start) {
   const begin = new Date(start)
   const end = new Date(start)
   end.setDate(end.getDate() + 6)
-  return `${begin.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+  return `${begin.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(
+    undefined,
+    { month: 'short', day: 'numeric' }
+  )}`
 }
 
 function formatDateKey(dateKey) {
@@ -36,42 +40,85 @@ function formatDateKey(dateKey) {
   return new Date(year, month - 1, day).toLocaleDateString()
 }
 
-function emptyPlanForWeek(weekStart) {
+function titleizeMealType(value) {
+  const slot = String(value || '')
+  return slot
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function cleanMealType(value) {
+  const name = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+
+  if (!name) return null
+  if (!/^[a-z0-9_]+$/.test(name)) return null
+  return name
+}
+
+function resolveMealTypes(plan) {
+  const incoming = plan && Array.isArray(plan.slots) ? plan.slots : null
+  const base = incoming && incoming.length ? incoming : DEFAULT_MEAL_TYPES
+  const unique = []
+  for (const slot of base) {
+    const cleaned = cleanMealType(slot)
+    if (cleaned && !unique.includes(cleaned)) unique.push(cleaned)
+  }
+  return unique.length ? unique.slice(0, MAX_MEAL_TYPES) : [...DEFAULT_MEAL_TYPES]
+}
+
+function emptyPlanForWeek(weekStart, mealTypes = DEFAULT_MEAL_TYPES) {
+  const slots = Array.isArray(mealTypes) && mealTypes.length ? mealTypes : DEFAULT_MEAL_TYPES
+
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart)
     date.setDate(date.getDate() + index)
+
+    const meals = {}
+    slots.forEach((slot) => {
+      meals[slot] = null
+    })
+
     return {
       day: date.toLocaleDateString(undefined, { weekday: 'short' }),
       date: toDateKey(date),
-      meals: {
-        breakfast: null,
-        lunch: null,
-        dinner: null,
-      },
+      meals,
     }
   })
 
   return {
     week_start: toDateKey(weekStart),
+    slots,
     days,
   }
 }
 
 function normalizePlan(plan, weekStart) {
-  const fallback = emptyPlanForWeek(weekStart)
+  const slots = resolveMealTypes(plan)
+  const fallback = emptyPlanForWeek(weekStart, slots)
   if (!plan || !Array.isArray(plan.days)) return fallback
+
   return {
     ...fallback,
     ...plan,
+    slots,
     days: fallback.days.map((day, index) => {
-      const current = plan.days[index]
+      const current = plan.days[index] || {}
+      const currentMeals = current && typeof current.meals === 'object' && current.meals ? current.meals : {}
+
+      const meals = {}
+      slots.forEach((slot) => {
+        meals[slot] = Object.prototype.hasOwnProperty.call(currentMeals, slot) ? currentMeals[slot] : day.meals[slot]
+      })
+
       return {
         ...day,
-        ...(current || {}),
-        meals: {
-          ...day.meals,
-          ...((current && current.meals) || {}),
-        },
+        ...current,
+        meals,
       }
     }),
   }
@@ -81,7 +128,7 @@ export default function MealPlanner() {
   const auth = useAuth()
   const navigate = useNavigate()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
-  const [plan, setPlan] = useState(() => emptyPlanForWeek(startOfWeek(new Date())))
+  const [plan, setPlan] = useState(() => emptyPlanForWeek(startOfWeek(new Date()), DEFAULT_MEAL_TYPES))
   const [allRecipes, setAllRecipes] = useState([])
   const [loadingPlan, setLoadingPlan] = useState(true)
   const [loadingRecipes, setLoadingRecipes] = useState(true)
@@ -96,9 +143,14 @@ export default function MealPlanner() {
   const [sortBy, setSortBy] = useState('relevance')
   const [confirmClearWeekOpen, setConfirmClearWeekOpen] = useState(false)
   const [lockNotice, setLockNotice] = useState('')
+  const [addTabOpen, setAddTabOpen] = useState(false)
+  const [newTabName, setNewTabName] = useState('')
+  const [newTabError, setNewTabError] = useState('')
 
   const weekKey = toDateKey(weekStart)
   const todayKey = toDateKey(new Date())
+
+  const mealTypes = useMemo(() => resolveMealTypes(plan), [plan])
 
   useEffect(() => {
     let isMounted = true
@@ -138,7 +190,7 @@ export default function MealPlanner() {
       } catch (err) {
         if (!isMounted) return
         setError(err.message || 'Unable to load meal plan')
-        setPlan(emptyPlanForWeek(weekStart))
+        setPlan(emptyPlanForWeek(weekStart, DEFAULT_MEAL_TYPES))
       } finally {
         if (isMounted) setLoadingPlan(false)
       }
@@ -155,7 +207,24 @@ export default function MealPlanner() {
     setSaving(true)
     try {
       const data = await saveMealPlanWeek(auth.token, weekKey, nextPlan)
-      setPlan(normalizePlan(data.plan, weekStart))
+
+      const serverPlan = data && data.plan ? data.plan : null
+      const normalizedServer = normalizePlan(serverPlan, weekStart)
+
+      const serverSlotsOk = normalizedServer && Array.isArray(normalizedServer.slots) && normalizedServer.slots.length > 0
+      const localSlotsOk = nextPlan && Array.isArray(nextPlan.slots) && nextPlan.slots.length > 0
+
+      const merged = serverSlotsOk
+        ? normalizedServer
+        : normalizePlan(
+            {
+              ...normalizedServer,
+              slots: localSlotsOk ? nextPlan.slots : normalizedServer.slots,
+            },
+            weekStart
+          )
+
+      setPlan(merged)
     } catch (err) {
       setError(err.message || 'Unable to save meal plan')
     } finally {
@@ -225,7 +294,7 @@ export default function MealPlanner() {
     if (!selectedSlot) return ''
     const day = plan.days[selectedSlot.dayIndex]
     if (!day) return ''
-    return `${day.day} ${formatDateKey(day.date)} · ${selectedSlot.mealType}`
+    return `${day.day} ${formatDateKey(day.date)} · ${titleizeMealType(selectedSlot.mealType)}`
   }, [selectedSlot, plan.days])
 
   const resetModalFilters = () => {
@@ -248,10 +317,10 @@ export default function MealPlanner() {
   useEffect(() => {
     if (!selectedSlot) return
     const day = plan.days[selectedSlot.dayIndex]
-    if (!day || day.date < todayKey || isPastWeek) {
+    if (!day || day.date < todayKey || isPastWeek || !mealTypes.includes(selectedSlot.mealType)) {
       setSelectedSlot(null)
     }
-  }, [selectedSlot, plan.days, todayKey, isPastWeek])
+  }, [selectedSlot, plan.days, todayKey, isPastWeek, mealTypes])
 
   useEffect(() => {
     if (!lockNotice) return
@@ -261,9 +330,11 @@ export default function MealPlanner() {
 
   const assignedCount = useMemo(() => {
     return plan.days.reduce((sum, day) => {
-      return sum + MEAL_TYPES.filter((mealType) => !!day.meals?.[mealType]).length
+      return sum + mealTypes.filter((mealType) => !!day.meals?.[mealType]).length
     }, 0)
-  }, [plan])
+  }, [plan, mealTypes])
+
+  const totalSlots = mealTypes.length * 7
 
   const openAssignModal = (dayIndex, mealType) => {
     const day = plan.days[dayIndex]
@@ -280,6 +351,7 @@ export default function MealPlanner() {
     if (!day || day.date < todayKey || isPastWeek) return
     const nextPlan = {
       ...plan,
+      slots: mealTypes,
       days: plan.days.map((day, index) =>
         index === dayIndex
           ? {
@@ -307,6 +379,7 @@ export default function MealPlanner() {
     if (!day || day.date < todayKey || isPastWeek) return
     const nextPlan = {
       ...plan,
+      slots: mealTypes,
       days: plan.days.map((day, index) =>
         index === dayIndex
           ? {
@@ -325,17 +398,20 @@ export default function MealPlanner() {
   const clearDay = async (dayIndex) => {
     const day = plan.days[dayIndex]
     if (!day || day.date < todayKey || isPastWeek) return
+
+    const nextMeals = {}
+    mealTypes.forEach((slot) => {
+      nextMeals[slot] = null
+    })
+
     const nextPlan = {
       ...plan,
+      slots: mealTypes,
       days: plan.days.map((day, index) =>
         index === dayIndex
           ? {
               ...day,
-              meals: {
-                breakfast: null,
-                lunch: null,
-                dinner: null,
-              },
+              meals: nextMeals,
             }
           : day
       ),
@@ -348,7 +424,7 @@ export default function MealPlanner() {
       setLockNotice('Past weeks are archived and cannot be edited.')
       return
     }
-    await persistPlan(emptyPlanForWeek(weekStart))
+    await persistPlan(emptyPlanForWeek(weekStart, mealTypes))
     setSelectedSlot(null)
     setConfirmClearWeekOpen(false)
   }
@@ -363,13 +439,92 @@ export default function MealPlanner() {
     setWeekStart(startOfWeek(next))
   }
 
+  const openAddTab = () => {
+    if (isPastWeek) {
+      setLockNotice('Past weeks are archived and cannot be edited.')
+      return
+    }
+    setNewTabName('')
+    setNewTabError('')
+    setAddTabOpen(true)
+  }
+
+  const removeMealType = async (slot) => {
+    if (isPastWeek) {
+      setLockNotice('Past weeks are archived and cannot be edited.')
+      return
+    }
+    if (mealTypes.length <= 1) {
+      setLockNotice('You must keep at least one meal tab.')
+      return
+    }
+
+    const ok = window.confirm(`Remove meal tab "${titleizeMealType(slot)}" for the whole week?`)
+    if (!ok) return
+
+    const nextSlots = mealTypes.filter((s) => s !== slot)
+    const nextPlan = {
+      ...plan,
+      slots: nextSlots,
+      days: plan.days.map((d) => {
+        const nextMeals = {}
+        nextSlots.forEach((s) => {
+          nextMeals[s] = d.meals && Object.prototype.hasOwnProperty.call(d.meals, s) ? d.meals[s] : null
+        })
+        return { ...d, meals: nextMeals }
+      }),
+    }
+
+    await persistPlan(nextPlan)
+
+    if (selectedSlot && selectedSlot.mealType === slot) {
+      setSelectedSlot(null)
+      resetModalFilters()
+    }
+  }
+
+  const addMealTypeFromModal = async () => {
+    if (isPastWeek) {
+      setLockNotice('Past weeks are archived and cannot be edited.')
+      return
+    }
+    if (mealTypes.length >= MAX_MEAL_TYPES) {
+      setNewTabError(`You can add up to ${MAX_MEAL_TYPES} meal tabs.`)
+      return
+    }
+
+    const cleaned = cleanMealType(newTabName)
+    if (!cleaned) {
+      setNewTabError('Use letters, numbers, and underscores only (e.g. pre_workout).')
+      return
+    }
+    if (mealTypes.includes(cleaned)) {
+      setNewTabError('That tab already exists.')
+      return
+    }
+
+    const nextSlots = [...mealTypes, cleaned]
+    const nextPlan = {
+      ...plan,
+      slots: nextSlots,
+      days: plan.days.map((d) => ({
+        ...d,
+        meals: { ...(d.meals || {}), [cleaned]: null },
+      })),
+    }
+
+    setPlan(nextPlan) // optimistic so you see it instantly
+    setAddTabOpen(false)
+    setNewTabName('')
+    setNewTabError('')
+
+    await persistPlan(nextPlan)
+  }
+
   return (
     <PageContainer>
       <div className="page-content min-w-0">
-        <SectionHeader
-          title="Meal planner"
-          subtitle="Plan your week with live recipes and auto-saved slots"
-        />
+        <SectionHeader title="Meal planner" subtitle="Plan your week with live recipes and auto-saved slots" />
 
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-cream-200 bg-white/80 p-4 sm:mb-8 sm:p-5">
           <div className="flex items-center gap-2">
@@ -383,17 +538,52 @@ export default function MealPlanner() {
               Next →
             </button>
           </div>
-          <div className="text-sm text-ink-muted">
-            <span className="font-semibold text-ink">{formatWeekRange(weekStart)}</span>
-            <span className="ml-2">• {assignedCount}/21 meals planned</span>
-            {isPastWeek ? <span className="ml-2 text-amber-700">• Archived week (read-only)</span> : null}
-            {saving ? <span className="ml-2 text-sage-dark">Saving…</span> : null}
+
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="text-sm text-ink-muted">
+              <span className="font-semibold text-ink">{formatWeekRange(weekStart)}</span>
+              <span className="ml-2">
+                • {assignedCount}/{totalSlots} meals planned
+              </span>
+              {isPastWeek ? <span className="ml-2 text-amber-700">• Archived week (read-only)</span> : null}
+              {saving ? <span className="ml-2 text-sage-dark">Saving…</span> : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {mealTypes.map((slot) => (
+                  <span
+                    key={slot}
+                    className="inline-flex items-center gap-2 rounded-full border border-cream-200 bg-white px-3 py-1 text-xs font-semibold text-ink-muted"
+                    title={slot}
+                  >
+                    {titleizeMealType(slot)}
+                    <button
+                      type="button"
+                      onClick={() => removeMealType(slot)}
+                      disabled={isPastWeek}
+                      className="rounded-full border border-cream-200 bg-cream-50 px-2 py-0.5 text-xs font-bold text-ink-muted hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={`Remove ${slot}`}
+                    >
+                      −
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={openAddTab}
+                disabled={isPastWeek}
+                className="rounded-full border border-cream-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                + Add tab
+              </button>
+            </div>
           </div>
         </div>
 
-        {error ? (
-          <div className="card mb-6 rounded-3xl p-6 text-sm text-tomato-dark">{error}</div>
-        ) : null}
+        {error ? <div className="card mb-6 rounded-3xl p-6 text-sm text-tomato-dark">{error}</div> : null}
 
         {lockNotice ? (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
@@ -432,65 +622,81 @@ export default function MealPlanner() {
                         </button>
                       )}
                     </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      {MEAL_TYPES.map((mealType) => {
-                        const meal = day.meals?.[mealType]
-                        const isLocked = day.date < todayKey || isPastWeek
-                        return (
-                          <div key={mealType} className="rounded-2xl border border-cream-200 bg-cream-50 p-3">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{mealType}</p>
-                            {meal ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-10 w-10 overflow-hidden rounded-lg bg-cream-200">
-                                    {meal.image ? <img src={meal.image} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center">🍽️</div>}
+
+                    <div className="overflow-x-auto">
+                      <div
+                        className="grid gap-3"
+                        style={{
+                          gridTemplateColumns: `repeat(${mealTypes.length}, minmax(220px, 1fr))`,
+                        }}
+                      >
+                        {mealTypes.map((mealType) => {
+                          const meal = day.meals?.[mealType]
+                          const isLocked = day.date < todayKey || isPastWeek
+                          return (
+                            <div key={mealType} className="rounded-2xl border border-cream-200 bg-cream-50 p-3">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                                {titleizeMealType(mealType)}
+                              </p>
+                              {meal ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 overflow-hidden rounded-lg bg-cream-200">
+                                      {meal.image ? (
+                                        <img src={meal.image} alt="" className="h-full w-full object-cover" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center">🍽️</div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-semibold text-ink">{meal.title}</p>
+                                      <p className="text-xs text-ink-muted">
+                                        {meal.totalTime ? `${meal.totalTime} min` : 'No time'}
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-ink">{meal.title}</p>
-                                    <p className="text-xs text-ink-muted">{meal.totalTime ? `${meal.totalTime} min` : 'No time'}</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => meal.id && navigate(`/recipes/${meal.id}`)}
+                                      className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+                                    >
+                                      View recipe
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (isLocked) {
+                                          setLockNotice('This slot is in the past and cannot be changed.')
+                                          return
+                                        }
+                                        clearSlot(dayIndex, mealType)
+                                      }}
+                                      className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+                                    >
+                                      Remove
+                                    </button>
                                   </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => meal.id && navigate(`/recipes/${meal.id}`)}
-                                    className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
-                                  >
-                                    View recipe
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (isLocked) {
-                                        setLockNotice('This slot is in the past and cannot be changed.')
-                                        return
-                                      }
-                                      clearSlot(dayIndex, mealType)
-                                    }}
-                                    className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (isLocked) {
-                                    setLockNotice('Past slots cannot be edited.')
-                                    return
-                                  }
-                                  openAssignModal(dayIndex, mealType)
-                                }}
-                                className="w-full rounded-xl border border-dashed border-cream-300 bg-white px-3 py-6 text-sm font-medium text-ink-muted hover:bg-cream-100"
-                              >
-                                + Add recipe
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isLocked) {
+                                      setLockNotice('Past slots cannot be edited.')
+                                      return
+                                    }
+                                    openAssignModal(dayIndex, mealType)
+                                  }}
+                                  className="w-full rounded-xl border border-dashed border-cream-300 bg-white px-3 py-6 text-sm font-medium text-ink-muted hover:bg-cream-100"
+                                >
+                                  + Add recipe
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -520,7 +726,11 @@ export default function MealPlanner() {
             setSelectedSlot(null)
             resetModalFilters()
           }}
-          title={selectedSlot ? `Add ${selectedSlot.mealType} for ${plan.days[selectedSlot?.dayIndex]?.day}` : 'Add meal'}
+          title={
+            selectedSlot
+              ? `Add ${titleizeMealType(selectedSlot.mealType)} for ${plan.days[selectedSlot?.dayIndex]?.day}`
+              : 'Add meal'
+          }
         >
           <div className="mb-3 rounded-xl border border-cream-200 bg-cream-50 px-3 py-2 text-sm">
             <span className="font-semibold text-ink">Slot:</span>{' '}
@@ -655,6 +865,79 @@ export default function MealPlanner() {
           {!loadingRecipes && filteredRecipes.length === 0 && (
             <p className="py-6 text-center text-sm text-ink-muted">No recipes match your search.</p>
           )}
+        </Modal>
+
+        <Modal
+          isOpen={addTabOpen}
+          onClose={() => {
+            setAddTabOpen(false)
+            setNewTabName('')
+            setNewTabError('')
+          }}
+          title="Add meal tab"
+        >
+          <p className="mb-3 text-sm text-ink-muted">
+            Add a new meal slot for the whole week (e.g. <span className="font-semibold text-ink">snack</span>,{' '}
+            <span className="font-semibold text-ink">pre_workout</span>).
+          </p>
+
+          <label className="block text-sm text-ink-muted">
+            Tab name
+            <input
+              value={newTabName}
+              onChange={(e) => {
+                setNewTabName(e.target.value)
+                setNewTabError('')
+              }}
+              placeholder="snack"
+              className="input mt-1 w-full"
+              autoFocus
+            />
+          </label>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {['snack', 'pre_workout', 'post_workout', 'dessert'].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  setNewTabName(preset)
+                  setNewTabError('')
+                }}
+                className="rounded-full border border-cream-200 bg-white px-3 py-1 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+              >
+                {preset.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+
+          {newTabError ? (
+            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+              {newTabError}
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setAddTabOpen(false)
+                setNewTabName('')
+                setNewTabError('')
+              }}
+              className="rounded-full border border-cream-200 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={addMealTypeFromModal}
+              className="rounded-full bg-sage px-4 py-2 text-sm font-semibold text-white hover:bg-sage-dark"
+            >
+              Add tab
+            </button>
+          </div>
         </Modal>
 
         <Modal

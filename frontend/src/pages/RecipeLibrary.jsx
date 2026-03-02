@@ -1,578 +1,715 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
-import RecipeCard from '../components/RecipeCard'
-import { useFridge } from '../context/FridgeContext'
-import { scoreRecipe } from '../utils/recipeFridge'
-import { getRecipes, createRecipe } from '../api/client'
+import Modal from '../components/Modal'
+import { getMealPlanWeek, getRecipes, saveMealPlanWeek } from '../api/client'
 import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
-const COURSE_OPTIONS = [
-  { value: 'All', label: 'All' },
-  { value: 'Breakfast', label: 'Breakfast' },
-  { value: 'Lunch', label: 'Lunch' },
-  { value: 'Dinner', label: 'Dinner' },
-]
+const MEAL_TYPES = ['breakfast', 'lunch', 'dinner']
 
-const SORT_OPTIONS = [
-  { value: 'relevance', label: 'Best match' },
-  { value: 'expiring', label: 'Expiring soon' },
-  { value: 'cook_time', label: 'Cook time' },
-  { value: 'rating', label: 'Rating' },
-  { value: 'vote_count', label: 'Most votes' },
-]
-
-const MAX_TIME_OPTIONS = [
-  { value: 'Any', label: 'Any' },
-  { value: '15', label: 'Under 15 min' },
-  { value: '30', label: 'Under 30 min' },
-  { value: '45', label: 'Under 45 min' },
-  { value: '60', label: 'Under 60 min' },
-]
-
-function StyledDropdown({ id, label, value, options, onChange }) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef(null)
-  const selected = options.find((option) => option.value === value) || options[0]
-
-  useEffect(() => {
-    if (!open) return
-    const onPointerDown = (event) => {
-      if (!rootRef.current?.contains(event.target)) {
-        setOpen(false)
-      }
-    }
-    const onEscape = (event) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onEscape)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onEscape)
-    }
-  }, [open])
-
-  return (
-    <div ref={rootRef} className="relative">
-      <label htmlFor={id} className="mb-2 block text-sm font-medium text-ink-muted">
-        {label}
-      </label>
-      <button
-        id={id}
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
-        className="input flex w-full items-center justify-between gap-3 text-left"
-      >
-        <span>{selected?.label}</span>
-        <span className="text-ink-muted">▾</span>
-      </button>
-
-      {open ? (
-        <ul
-          role="listbox"
-          className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-cream-200 bg-white p-1 shadow-soft"
-        >
-          {options.map((option) => (
-            <li key={option.value}>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(option.value)
-                  setOpen(false)
-                }}
-                className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${
-                  option.value === value
-                    ? 'bg-sage/15 font-semibold text-sage-dark'
-                    : 'text-ink hover:bg-cream-100'
-                }`}
-              >
-                {option.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  )
+function startOfWeek(date = new Date()) {
+  const next = new Date(date)
+  const diff = (next.getDay() + 6) % 7
+  next.setDate(next.getDate() - diff)
+  next.setHours(0, 0, 0, 0)
+  return next
 }
 
-export default function RecipeLibrary() {
-  const auth = useAuth()
-  const { items: fridgeItems } = useFridge()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const querySearch = searchParams.get('q') || ''
-  const rawQueryCourse = searchParams.get('course') || 'All'
-  const rawQueryMaxTime = searchParams.get('maxTime') || 'Any'
-  const querySort = searchParams.get('sort') || 'relevance'
-  const source = searchParams.get('source') || ''
-  const queryCourse = COURSE_OPTIONS.some((option) => option.value === rawQueryCourse)
-    ? rawQueryCourse
-    : 'All'
-  const queryMaxTime = MAX_TIME_OPTIONS.some((option) => option.value === rawQueryMaxTime)
-    ? rawQueryMaxTime
-    : 'Any'
-  const [recipes, setRecipes] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [search, setSearch] = useState(querySearch)
-  const [course, setCourse] = useState(queryCourse)
-  const [maxTime, setMaxTime] = useState(queryMaxTime)
-  const [sortBy, setSortBy] = useState(querySort)
-  const [filtersOpen, setFiltersOpen] = useState(false)
+function toDateKey(date) {
+  const d = new Date(date)
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+}
 
-  const [addOpen, setAddOpen] = useState(false)
-  const addModalRef = useRef(null)
-  const [newRecipe, setNewRecipe] = useState({
-    title: '',
-    course: 'Dinner',
-    prepTime: '',
-    cookTime: '',
-    image: '',
-    url: '',
-    ingredientsText: '',
-    stepsText: '',
+function formatWeekRange(start) {
+  const begin = new Date(start)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  return `${begin.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(
+    undefined,
+    { month: 'short', day: 'numeric' }
+  )}`
+}
+
+function formatDateKey(dateKey) {
+  if (!dateKey || typeof dateKey !== 'string') return ''
+  const [year, month, day] = dateKey.split('-').map(Number)
+  if (!year || !month || !day) return dateKey
+  return new Date(year, month - 1, day).toLocaleDateString()
+}
+
+function emptyPlanForWeek(weekStart) {
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart)
+    date.setDate(date.getDate() + index)
+    return {
+      day: date.toLocaleDateString(undefined, { weekday: 'short' }),
+      date: toDateKey(date),
+      meals: {
+        breakfast: null,
+        lunch: null,
+        dinner: null,
+      },
+    }
   })
 
-  useEffect(() => {
-    if (!addOpen) return
-    const onEscape = (event) => {
-      if (event.key === 'Escape') setAddOpen(false)
-    }
-    document.addEventListener('keydown', onEscape)
-    return () => document.removeEventListener('keydown', onEscape)
-  }, [addOpen])
-
-  useEffect(() => {
-    if (!addOpen) return
-    const id = window.setTimeout(() => {
-      const el = addModalRef.current?.querySelector('input, textarea, button, select')
-      el?.focus?.()
-    }, 0)
-    return () => window.clearTimeout(id)
-  }, [addOpen])
-
-  const resetNewRecipe = () => {
-    setNewRecipe({
-      title: '',
-      course: 'Dinner',
-      prepTime: '',
-      cookTime: '',
-      image: '',
-      url: '',
-      ingredientsText: '',
-      stepsText: '',
-    })
-  }
-
-  const parseLines = (text) =>
-    (text || '')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-
-  const handleCreateRecipe = async (e) => {
-  e.preventDefault()
-
-  const title = (newRecipe.title || '').trim()
-  const ingredients = parseLines(newRecipe.ingredientsText)
-  const steps = parseLines(newRecipe.stepsText)
-  const prepTime = Number(newRecipe.prepTime || 0) || undefined
-  const cookTime = Number(newRecipe.cookTime || 0) || undefined
-  const totalTime = (prepTime || 0) + (cookTime || 0) || undefined
-
-  if (!title) return
-  if (ingredients.length === 0) return
-  if (steps.length === 0) return
-
-  const payload = {
-    title,
-    course: newRecipe.course || 'Dinner',
-    prep_time: prepTime,
-    cook_time: cookTime,
-    total_time: totalTime,
-    image: (newRecipe.image || '').trim() || null,
-    url: (newRecipe.url || '').trim() || null,
-    ingredients,
-    steps,
-  }
-
-  try {
-    const data = await createRecipe(auth.token, payload)
-
-    const raw = data.recipe || data
-    const createdRecipe = adaptRecipe(raw)
-
-    setRecipes((prev) => [createdRecipe, ...prev])
-    setAddOpen(false)
-    resetNewRecipe()
-  } catch (err) {
-    setError(err.message || 'Unable to create recipe')
+  return {
+    week_start: toDateKey(weekStart),
+    days,
   }
 }
 
-  useEffect(() => {
-    setSearch(querySearch)
-    setCourse(queryCourse)
-    setMaxTime(queryMaxTime)
-    setSortBy(querySort)
-  }, [querySearch, queryCourse, queryMaxTime, querySort])
+function normalizePlan(plan, weekStart) {
+  const fallback = emptyPlanForWeek(weekStart)
+  if (!plan || !Array.isArray(plan.days)) return fallback
+  return {
+    ...fallback,
+    ...plan,
+    days: fallback.days.map((day, index) => {
+      const current = plan.days[index]
+      return {
+        ...day,
+        ...(current || {}),
+        meals: {
+          ...day.meals,
+          ...((current && current.meals) || {}),
+        },
+      }
+    }),
+  }
+}
 
-  useEffect(() => {
-    const next = {}
-    if (search.trim()) next.q = search.trim()
-    if (course !== 'All') next.course = course
-    if (maxTime !== 'Any') next.maxTime = maxTime
-    if (sortBy !== 'relevance') next.sort = sortBy
-    if (source) next.source = source
-    setSearchParams(next, { replace: true })
-  }, [search, course, maxTime, sortBy, source, setSearchParams])
+export default function MealPlanner() {
+  const auth = useAuth()
+  const navigate = useNavigate()
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
+  const [plan, setPlan] = useState(() => emptyPlanForWeek(startOfWeek(new Date())))
+  const [allRecipes, setAllRecipes] = useState([])
+  const [loadingPlan, setLoadingPlan] = useState(true)
+  const [loadingRecipes, setLoadingRecipes] = useState(true)
+  const [error, setError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState(null) // { dayIndex, mealType }
+  const [addModalSearch, setAddModalSearch] = useState('')
+  const [quickOnly, setQuickOnly] = useState(false)
+  const [selectedCourse, setSelectedCourse] = useState('all')
+  const [selectedDiet, setSelectedDiet] = useState('all')
+  const [maxMinutes, setMaxMinutes] = useState('')
+  const [sortBy, setSortBy] = useState('relevance')
+  const [confirmClearWeekOpen, setConfirmClearWeekOpen] = useState(false)
+  const [lockNotice, setLockNotice] = useState('')
+
+  const weekKey = toDateKey(weekStart)
+  const todayKey = toDateKey(new Date())
 
   useEffect(() => {
     let isMounted = true
+
     async function loadRecipes() {
-      setLoading(true)
+      if (!auth.token) return
+      setLoadingRecipes(true)
       try {
-        const params = {
-          limit: 50,
-          q: search.trim() || undefined,
-          course: course === 'All' ? undefined : course,
-          max_time: maxTime === 'Any' ? undefined : Number(maxTime),
-          sort: sortBy,
-        }
-        const data = await getRecipes(auth.token, params)
+        const data = await getRecipes(auth.token, { limit: 200, ignore_prefs: true })
         if (!isMounted) return
-        const adapted = (data.recipes || []).map(adaptRecipe)
-        setRecipes(adapted)
+        setAllRecipes((data.recipes || []).map(adaptRecipe))
       } catch (err) {
         if (!isMounted) return
         setError(err.message || 'Unable to load recipes')
       } finally {
-        if (isMounted) setLoading(false)
+        if (isMounted) setLoadingRecipes(false)
       }
     }
+
     loadRecipes()
-    return () => { isMounted = false }
-  }, [auth.token, search, course, maxTime, sortBy])
+    return () => {
+      isMounted = false
+    }
+  }, [auth.token])
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadPlan() {
+      if (!auth.token) return
+      setLoadingPlan(true)
+      setError(null)
+      try {
+        const data = await getMealPlanWeek(auth.token, weekKey)
+        if (!isMounted) return
+        setPlan(normalizePlan(data.plan, weekStart))
+      } catch (err) {
+        if (!isMounted) return
+        setError(err.message || 'Unable to load meal plan')
+        setPlan(emptyPlanForWeek(weekStart))
+      } finally {
+        if (isMounted) setLoadingPlan(false)
+      }
+    }
+
+    loadPlan()
+    return () => {
+      isMounted = false
+    }
+  }, [auth.token, weekKey, weekStart])
+
+  const persistPlan = async (nextPlan) => {
+    if (!auth.token) return
+    setSaving(true)
+    try {
+      const data = await saveMealPlanWeek(auth.token, weekKey, nextPlan)
+      setPlan(normalizePlan(data.plan, weekStart))
+    } catch (err) {
+      setError(err.message || 'Unable to save meal plan')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const filteredRecipes = useMemo(() => {
+    const query = addModalSearch.trim().toLowerCase()
+    const maxTimeValue = Number(maxMinutes)
+    let list = quickOnly ? allRecipes.filter((recipe) => (recipe.totalTime || 999) <= 30) : [...allRecipes]
+
+    if (selectedCourse !== 'all') {
+      list = list.filter((recipe) => (recipe.course || '').toLowerCase() === selectedCourse)
+    }
+
+    if (selectedDiet !== 'all') {
+      list = list.filter((recipe) => (recipe.diet || '').toLowerCase() === selectedDiet)
+    }
+
+    if (Number.isFinite(maxTimeValue) && maxTimeValue > 0) {
+      list = list.filter((recipe) => (recipe.totalTime || 999) <= maxTimeValue)
+    }
+
+    if (query) {
+      list = list.filter((recipe) => {
+        const inTitle = recipe.title?.toLowerCase().includes(query)
+        const inTags = (recipe.tags || []).some((tag) => tag.toLowerCase().includes(query))
+        return inTitle || inTags
+      })
+    }
+
+    if (sortBy === 'time-asc') {
+      list.sort((a, b) => (a.totalTime || 999) - (b.totalTime || 999))
+    } else if (sortBy === 'time-desc') {
+      list.sort((a, b) => (b.totalTime || 0) - (a.totalTime || 0))
+    } else if (sortBy === 'title') {
+      list.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    }
+
+    return list
+  }, [allRecipes, addModalSearch, quickOnly, selectedCourse, selectedDiet, maxMinutes, sortBy])
+
+  const courseOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        allRecipes
+          .map((recipe) => (recipe.course || '').trim())
+          .filter(Boolean)
+          .map((value) => value.toLowerCase())
+      )
+    ).sort()
+  }, [allRecipes])
+
+  const dietOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        allRecipes
+          .map((recipe) => (recipe.diet || '').trim())
+          .filter(Boolean)
+          .map((value) => value.toLowerCase())
+      )
+    ).sort()
+  }, [allRecipes])
+
+  const selectedSlotLabel = useMemo(() => {
+    if (!selectedSlot) return ''
+    const day = plan.days[selectedSlot.dayIndex]
+    if (!day) return ''
+    return `${day.day} ${formatDateKey(day.date)} · ${selectedSlot.mealType}`
+  }, [selectedSlot, plan.days])
+
+  const resetModalFilters = () => {
+    setAddModalSearch('')
+    setQuickOnly(false)
+    setSelectedCourse('all')
+    setSelectedDiet('all')
+    setMaxMinutes('')
+    setSortBy('relevance')
+  }
+
+  const weekEndKey = useMemo(() => {
+    const end = new Date(weekStart)
+    end.setDate(end.getDate() + 6)
+    return toDateKey(end)
+  }, [weekStart])
+
+  const isPastWeek = weekEndKey < todayKey
+  const isReadOnlyWeek = isPastWeek
+
+  useEffect(() => {
+    if (!selectedSlot) return
+    const day = plan.days[selectedSlot.dayIndex]
+    if (!day || day.date < todayKey || isPastWeek) {
+      setSelectedSlot(null)
+    }
+  }, [selectedSlot, plan.days, todayKey, isPastWeek])
+
+  useEffect(() => {
+    if (!lockNotice) return
+    const timeoutId = setTimeout(() => setLockNotice(''), 2200)
+    return () => clearTimeout(timeoutId)
+  }, [lockNotice])
+
+  const assignedCount = useMemo(() => {
+    return plan.days.reduce((sum, day) => {
+      return sum + MEAL_TYPES.filter((mealType) => !!day.meals?.[mealType]).length
+    }, 0)
+  }, [plan])
+
+  const openAssignModal = (dayIndex, mealType) => {
+    const day = plan.days[dayIndex]
+    if (!day || day.date < todayKey || isPastWeek) return
+    setSelectedSlot({ dayIndex, mealType })
+    resetModalFilters()
+  }
+
+  const assignRecipe = async (dayIndex, mealType, recipe) => {
+    const day = plan.days[dayIndex]
+    if (!day || day.date < todayKey || isPastWeek) return
+    const nextPlan = {
+      ...plan,
+      days: plan.days.map((day, index) =>
+        index === dayIndex
+          ? {
+              ...day,
+              meals: {
+                ...day.meals,
+                [mealType]: {
+                  id: recipe.id,
+                  title: recipe.title,
+                  image: recipe.image || null,
+                  totalTime: recipe.totalTime || null,
+                },
+              },
+            }
+          : day
+      ),
+    }
+    await persistPlan(nextPlan)
+    setSelectedSlot(null)
+    resetModalFilters()
+  }
+
+  const clearSlot = async (dayIndex, mealType) => {
+    const day = plan.days[dayIndex]
+    if (!day || day.date < todayKey || isPastWeek) return
+    const nextPlan = {
+      ...plan,
+      days: plan.days.map((day, index) =>
+        index === dayIndex
+          ? {
+              ...day,
+              meals: {
+                ...day.meals,
+                [mealType]: null,
+              },
+            }
+          : day
+      ),
+    }
+    await persistPlan(nextPlan)
+  }
+
+  const clearDay = async (dayIndex) => {
+    const day = plan.days[dayIndex]
+    if (!day || day.date < todayKey || isPastWeek) return
+    const nextPlan = {
+      ...plan,
+      days: plan.days.map((day, index) =>
+        index === dayIndex
+          ? {
+              ...day,
+              meals: {
+                breakfast: null,
+                lunch: null,
+                dinner: null,
+              },
+            }
+          : day
+      ),
+    }
+    await persistPlan(nextPlan)
+  }
+
+  const clearWeek = async () => {
+    if (isPastWeek) return
+    await persistPlan(emptyPlanForWeek(weekStart))
+    setSelectedSlot(null)
+    setConfirmClearWeekOpen(false)
+  }
+
+  const goToCurrentWeek = () => {
+    setWeekStart(startOfWeek(new Date()))
+  }
+
+  const moveWeek = (offset) => {
+    const next = new Date(weekStart)
+    next.setDate(next.getDate() + offset * 7)
+    setWeekStart(startOfWeek(next))
+  }
 
   return (
     <PageContainer>
-      <div className="page-content">
-        <SectionHeader
-          title="Recipe library"
-          subtitle="Search and filter recipes"
-        />
+      <div className="page-content min-w-0">
+        <SectionHeader title="Meal planner" subtitle="Plan your week with live recipes and auto-saved slots" />
 
-        <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            <span className="text-lg leading-none">＋</span>
-            Add recipe
-          </button>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-cream-200 bg-white/80 p-4 sm:mb-8 sm:p-5">
+          <div className="flex items-center gap-2">
+            <button type="button" className="btn-secondary" onClick={() => moveWeek(-1)}>
+              ← Previous
+            </button>
+            <button type="button" className="btn-secondary" onClick={goToCurrentWeek}>
+              This week
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => moveWeek(1)}>
+              Next →
+            </button>
+          </div>
+          <div className="text-sm text-ink-muted">
+            <span className="font-semibold text-ink">{formatWeekRange(weekStart)}</span>
+            <span className="ml-2">• {assignedCount}/21 meals planned</span>
+            {saving ? <span className="ml-2 text-sage-dark">Saving…</span> : null}
+          </div>
         </div>
 
-        {addOpen ? (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setAddOpen(false)
-            }}
-          >
-            <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
-            <div
-  ref={addModalRef}
-  className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-soft max-h-[85vh] flex flex-col"
->
-              <div className="flex items-start justify-between gap-4 border-b border-cream-200 p-6 sticky top-0 bg-white z-10">
-                <div>
-                  <h2 className="text-xl font-bold text-ink">Add a recipe</h2>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    Title, ingredients, and steps are required.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                  setAddOpen(false)
-                  resetNewRecipe()
-                }}
-              aria-label="Close"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-cream-200 bg-white text-lg font-semibold text-ink-muted transition hover:bg-cream-100 hover:text-ink"
-                >
-                ✕
-              </button>
-              </div>
+        {isReadOnlyWeek ? (
+          <div className="mb-6 rounded-2xl border border-cream-200 bg-cream-50 px-4 py-3 text-sm text-ink-muted">
+            <span className="font-semibold text-ink">Archived week:</span> You can View past meals, but edits are disabled.
+          </div>
+        ) : null}
 
-             <form onSubmit={handleCreateRecipe} className="p-6 overflow-y-auto">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-title" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Title <span className="text-tomato-dark">*</span>
-                    </label>
-                    <input
-                      id="new-title"
-                      type="text"
-                      value={newRecipe.title}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, title: e.target.value }))}
-                      placeholder="e.g., Lemon Garlic Pasta"
-                      className="input w-full"
-                      required
-                    />
-                  </div>
+        {error ? <div className="card mb-6 rounded-3xl p-6 text-sm text-tomato-dark">{error}</div> : null}
 
-                  <div>
-                    <StyledDropdown
-                      id="new-course"
-                      label="Meal type"
-                      value={newRecipe.course}
-                      onChange={(value) => setNewRecipe((prev) => ({ ...prev, course: value }))}
-                      options={COURSE_OPTIONS.filter((o) => o.value !== 'All')}
-                    />
-                  </div>
+        {lockNotice && !isReadOnlyWeek ? (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+            {lockNotice}
+          </div>
+        ) : null}
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="new-prep" className="mb-2 block text-sm font-medium text-ink-muted">
-                        Prep (min)
-                      </label>
-                      <input
-                        id="new-prep"
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        value={newRecipe.prepTime}
-                        onChange={(e) => setNewRecipe((prev) => ({ ...prev, prepTime: e.target.value }))}
-                        placeholder="10"
-                        className="input w-full"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="new-cook" className="mb-2 block text-sm font-medium text-ink-muted">
-                        Cook (min)
-                      </label>
-                      <input
-                        id="new-cook"
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        value={newRecipe.cookTime}
-                        onChange={(e) => setNewRecipe((prev) => ({ ...prev, cookTime: e.target.value }))}
-                        placeholder="20"
-                        className="input w-full"
-                      />
-                    </div>
-                  </div>
+        <div className="grid gap-6">
+          <div className="min-w-0">
+            {loadingPlan ? (
+              <div className="card rounded-3xl p-8 text-center text-ink-muted">Loading week plan…</div>
+            ) : (
+              <div className="space-y-4">
+                {plan.days.map((day, dayIndex) => {
+                  const isLockedDay = isReadOnlyWeek || day.date < todayKey
 
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-image" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Image URL (optional)
-                    </label>
-                    <input
-                      id="new-image"
-                      type="url"
-                      value={newRecipe.image}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, image: e.target.value }))}
-                      placeholder="https://..."
-                      className="input w-full"
-                    />
-                  </div>
+                  return (
+                    <article
+                      key={day.date}
+                      className={[
+                        'card rounded-3xl p-5 sm:p-6',
+                        isReadOnlyWeek ? 'opacity-80' : '',
+                      ].join(' ')}
+                    >
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-semibold text-ink">{day.day}</h3>
+                          <p className="text-sm text-ink-muted">{formatDateKey(day.date)}</p>
+                        </div>
 
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-url" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Original recipe link (optional)
-                    </label>
-                    <input
-                      id="new-url"
-                      type="url"
-                      value={newRecipe.url}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, url: e.target.value }))}
-                      placeholder="https://..."
-                      className="input w-full"
-                    />
-                  </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isLockedDay) return
+                            clearDay(dayIndex)
+                          }}
+                          disabled={isLockedDay}
+                          className={[
+                            'rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold',
+                            isLockedDay
+                              ? 'cursor-not-allowed bg-cream-50 text-ink-muted/70 opacity-70'
+                              : 'text-ink-muted hover:bg-cream-100',
+                          ].join(' ')}
+                          title={isLockedDay ? 'Archived/past days are read-only' : 'Clear day'}
+                        >
+                          Clear day
+                        </button>
+                      </div>
 
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-ingredients" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Ingredients (one per line) <span className="text-tomato-dark">*</span>
-                    </label>
-                    <textarea
-                      id="new-ingredients"
-                      rows={5}
-                      value={newRecipe.ingredientsText}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, ingredientsText: e.target.value }))}
-                      placeholder={`e.g.\nSpaghetti\nGarlic\nOlive oil\nLemon`}
-                      className="input w-full"
-                      required
-                    />
-                  </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {MEAL_TYPES.map((mealType) => {
+                          const meal = day.meals?.[mealType]
+                          const isLocked = isLockedDay
 
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-steps" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Steps (one per line) <span className="text-tomato-dark">*</span>
-                    </label>
-                    <textarea
-                      id="new-steps"
-                      rows={6}
-                      value={newRecipe.stepsText}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, stepsText: e.target.value }))}
-                      placeholder={`e.g.\nBoil pasta.\nSauté garlic in oil.\nToss with lemon and pasta.`}
-                      className="input w-full"
-                      required
-                    />
-                  </div>
-                </div>
+                          return (
+                            <div
+                              key={mealType}
+                              className={[
+                                'rounded-2xl border border-cream-200 bg-cream-50 p-3',
+                                isReadOnlyWeek ? 'opacity-90' : '',
+                              ].join(' ')}
+                            >
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{mealType}</p>
 
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sticky bottom-0 bg-white pt-4 border-t border-cream-200">
+                              {meal ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 overflow-hidden rounded-lg bg-cream-200">
+                                      {meal.image ? (
+                                        <img src={meal.image} alt="" className="h-full w-full object-cover" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center">🍽️</div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-semibold text-ink">{meal.title}</p>
+                                      <p className="text-xs text-ink-muted">{meal.totalTime ? `${meal.totalTime} min` : 'No time'}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => meal.id && navigate(`/recipes/${meal.id}`)}
+                                      className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+                                    >
+                                      View recipe
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (isLocked) return
+                                        clearSlot(dayIndex, mealType)
+                                      }}
+                                      disabled={isLocked}
+                                      className={[
+                                        'rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold',
+                                        isLocked
+                                          ? 'cursor-not-allowed bg-cream-50 text-ink-muted/70 opacity-70'
+                                          : 'text-ink-muted hover:bg-cream-100',
+                                      ].join(' ')}
+                                      title={isLocked ? 'Archived/past slots are read-only' : 'Remove'}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isLocked) return
+                                    openAssignModal(dayIndex, mealType)
+                                  }}
+                                  disabled={isLocked}
+                                  className={[
+                                    'w-full rounded-xl border border-dashed border-cream-300 px-3 py-6 text-sm font-medium',
+                                    isLocked
+                                      ? 'cursor-not-allowed bg-white/70 text-ink-muted/70 opacity-70'
+                                      : 'bg-white text-ink-muted hover:bg-cream-100',
+                                  ].join(' ')}
+                                  title={isLocked ? 'Archived/past slots are read-only' : 'Add recipe'}
+                                >
+                                  + Add recipe
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </article>
+                  )
+                })}
+
+                <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={() => {
-                      setAddOpen(false)
-                      resetNewRecipe()
+                      if (isReadOnlyWeek) return
+                      setConfirmClearWeekOpen(true)
                     }}
-                    className="btn-secondary w-full sm:w-auto"
+                    disabled={isReadOnlyWeek}
+                    className={[
+                      'rounded-full px-5 py-2 text-sm font-semibold text-white',
+                      isReadOnlyWeek ? 'cursor-not-allowed bg-rose-300 opacity-70' : 'bg-rose-600 hover:bg-rose-700',
+                    ].join(' ')}
+                    title={isReadOnlyWeek ? 'Archived weeks are read-only' : 'Clear full week'}
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary w-full sm:w-auto"
-                  >
-                    Save recipe
+                    Clear full week
                   </button>
                 </div>
-
-                <p className="mt-3 text-xs text-ink-muted">
-                </p>
-              </form>
-            </div>
+              </div>
+            )}
           </div>
-        ) : null}
+        </div>
 
-        {search.trim() && source === 'use-up-soon' ? (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-tomato/20 bg-tomato/5 px-4 py-3 text-sm">
-            <p className="font-medium text-tomato-dark">
-              Showing recipes that can use <span className="font-semibold">{search.trim()}</span>
-            </p>
+        <Modal
+          isOpen={!!selectedSlot}
+          onClose={() => {
+            setSelectedSlot(null)
+            resetModalFilters()
+          }}
+          title={selectedSlot ? `Add ${selectedSlot.mealType} for ${plan.days[selectedSlot?.dayIndex]?.day}` : 'Add meal'}
+        >
+          <div className="mb-3 rounded-xl border border-cream-200 bg-cream-50 px-3 py-2 text-sm">
+            <span className="font-semibold text-ink">Slot:</span>{' '}
+            <span className="text-ink-muted">{selectedSlotLabel || 'Not selected'}</span>
+          </div>
+
+          <input
+            type="search"
+            placeholder="Search by recipe name or tag..."
+            value={addModalSearch}
+            onChange={(e) => setAddModalSearch(e.target.value)}
+            className="input mb-3 w-full"
+            aria-label="Search recipes"
+            autoFocus
+          />
+
+          <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="text-sm text-ink-muted">
+              Course
+              <select value={selectedCourse} onChange={(event) => setSelectedCourse(event.target.value)} className="input mt-1 w-full">
+                <option value="all">All</option>
+                {courseOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-ink-muted">
+              Diet
+              <select value={selectedDiet} onChange={(event) => setSelectedDiet(event.target.value)} className="input mt-1 w-full">
+                <option value="all">All</option>
+                {dietOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-sm text-ink-muted">
+              Max minutes
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={maxMinutes}
+                onChange={(event) => setMaxMinutes(event.target.value)}
+                placeholder="e.g. 30"
+                className="input mt-1 w-full"
+              />
+            </label>
+
+            <label className="text-sm text-ink-muted">
+              Sort
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="input mt-1 w-full">
+                <option value="relevance">Relevance</option>
+                <option value="time-asc">Fastest first</option>
+                <option value="time-desc">Longest first</option>
+                <option value="title">Title A–Z</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                checked={quickOnly}
+                onChange={(event) => setQuickOnly(event.target.checked)}
+                className="h-4 w-4 rounded border-cream-300 text-sage"
+              />
+              Quick only (≤ 30 min)
+            </label>
+            <button
+              type="button"
+              onClick={resetModalFilters}
+              className="rounded-full border border-cream-200 px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+            >
+              Reset filters
+            </button>
+          </div>
+
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            {loadingRecipes ? 'Loading recipes…' : `${filteredRecipes.length} recipes found`}
+          </p>
+
+          <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
+            {loadingRecipes ? (
+              <li className="py-6 text-center text-sm text-ink-muted">Loading recipes…</li>
+            ) : (
+              filteredRecipes.slice(0, 80).map((recipe) => (
+                <li key={recipe.id}>
+                  <button
+                    type="button"
+                    onClick={() => selectedSlot && assignRecipe(selectedSlot.dayIndex, selectedSlot.mealType, recipe)}
+                    className="flex w-full items-center gap-4 rounded-2xl bg-cream-100/80 p-4 text-left transition-colors hover:bg-sage/10 hover:shadow-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+                  >
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-cream-200">
+                      {recipe.image ? (
+                        <img src={recipe.image} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xl">🍽️</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-ink">{recipe.title}</p>
+                      <p className="truncate text-sm text-ink-muted">
+                        {recipe.totalTime ? `${recipe.totalTime} min` : 'No time'}
+                        {recipe.course ? ` • ${recipe.course}` : ''}
+                        {recipe.diet ? ` • ${recipe.diet}` : ''}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+
+          {!loadingRecipes && filteredRecipes.length === 0 && (
+            <p className="py-6 text-center text-sm text-ink-muted">No recipes match your search.</p>
+          )}
+        </Modal>
+
+        <Modal isOpen={confirmClearWeekOpen} onClose={() => setConfirmClearWeekOpen(false)} title="Clear full week">
+          <p className="text-sm text-ink-muted">
+            This removes all planned meals for {formatWeekRange(weekStart)}. This cannot be undone.
+          </p>
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmClearWeekOpen(false)}
+              className="rounded-full border border-cream-200 px-4 py-2 text-sm font-semibold text-ink-muted hover:bg-cream-100"
+            >
+              Cancel
+            </button>
             <button
               type="button"
               onClick={() => {
-                setSearch('')
-                const next = {}
-                if (course !== 'All') next.course = course
-                if (maxTime !== 'Any') next.maxTime = maxTime
-                if (sortBy !== 'relevance') next.sort = sortBy
-                setSearchParams(next, { replace: true })
+                if (isReadOnlyWeek) return
+                clearWeek()
               }}
-              className="rounded-full border border-cream-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+              disabled={isReadOnlyWeek}
+              className={[
+                'rounded-full px-4 py-2 text-sm font-semibold text-white',
+                isReadOnlyWeek ? 'cursor-not-allowed bg-rose-300 opacity-70' : 'bg-rose-600 hover:bg-rose-700',
+              ].join(' ')}
+              title={isReadOnlyWeek ? 'Archived weeks are read-only' : 'Yes, clear week'}
             >
-              Show all recipes
+              Yes, clear week
             </button>
           </div>
-        ) : null}
-
-        <div className="card mb-8 rounded-3xl p-6 sm:p-8">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="sm:col-span-2">
-              <label htmlFor="recipe-search" className="mb-2 block text-sm font-medium text-ink-muted">
-                Search
-              </label>
-              <input
-                id="recipe-search"
-                type="search"
-                placeholder="Search recipes..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input w-full"
-              />
-            </div>
-            <div>
-              <StyledDropdown
-                id="sortBy"
-                label="Sort by"
-                value={sortBy}
-                onChange={setSortBy}
-                options={SORT_OPTIONS}
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={() => setFiltersOpen((prev) => !prev)}
-                className="btn-secondary w-full"
-              >
-                {filtersOpen ? 'Hide filters' : 'Filters'}
-              </button>
-            </div>
-          </div>
-          {filtersOpen && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <StyledDropdown
-                  id="course"
-                  label="Meal type"
-                  value={course}
-                  onChange={setCourse}
-                  options={COURSE_OPTIONS}
-                />
-              </div>
-              <div>
-                <StyledDropdown
-                  id="maxTime"
-                  label="Max cook time"
-                  value={maxTime}
-                  onChange={setMaxTime}
-                  options={MAX_TIME_OPTIONS}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="card rounded-3xl p-12 text-center">
-            <p className="text-ink-muted leading-relaxed">Loading recipes...</p>
-          </div>
-        ) : error ? (
-          <div className="card rounded-3xl p-12 text-center">
-            <p className="text-ink-muted leading-relaxed">{error}</p>
-          </div>
-        ) : recipes.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
-            {recipes.map((recipe) => {
-              const { canMake, matchCount, total } = scoreRecipe(recipe, fridgeItems)
-              const ingredientStatus = !canMake && total > 0
-                ? matchCount > 0
-                  ? `You have ${matchCount}/${total} ingredients`
-                  : `Needs ${total} ingredients`
-                : undefined
-              return (
-                <div key={recipe.id}>
-                  <RecipeCard
-                    recipe={recipe}
-                    badgeLabel={canMake ? 'You can make this' : undefined}
-                    ingredientStatus={ingredientStatus}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="card rounded-3xl p-12 text-center sm:p-16">
-            <p className="text-5xl sm:text-6xl" aria-hidden>🔍</p>
-            <p className="mt-6 text-base text-ink-muted leading-relaxed">
-              No recipes match your preferences yet.
-            </p>
-          </div>
-        )}
+        </Modal>
       </div>
     </PageContainer>
   )
