@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import Badge from '../components/Badge'
 import PageContainer from '../components/PageContainer'
 import { recipeSteps } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
@@ -32,6 +33,10 @@ export default function RecipeDetail() {
     const missingList = ingredients.filter((ing) => !ingredientInFridge(ing, fridgeItems))
     return { inFridge: inFridgeList, missing: missingList }
   }, [ingredients, fridgeItems])
+
+  const orderedIngredients = useMemo(() => {
+    return [...missing, ...inFridge]
+  }, [missing, inFridge])
 
   const normalizeName = (value) =>
     (value || '')
@@ -194,14 +199,31 @@ export default function RecipeDetail() {
                     </span>
                   ) : null}
                 </div>
+                {ingredients.length > 0 ? (
+                  <p className="mt-3 text-sm text-ink-muted">
+                    You have <span className="font-semibold text-sage-dark">{inFridge.length}</span> of{' '}
+                    <span className="font-semibold text-ink">{ingredients.length}</span> ingredients
+                    {missing.length > 0 ? ` (${missing.length} missing)` : ''}.
+                  </p>
+                ) : null}
               </div>
             </div>
             {/* Ingredients */}
             {ingredients.length > 0 && (
               <>
                 <h2 className="mt-8 text-xl font-bold text-ink">Ingredients</h2>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-sage/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Available</p>
+                    <p className="mt-1 text-lg font-semibold text-sage-dark">{inFridge.length}</p>
+                  </div>
+                  <div className="rounded-2xl bg-tomato/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Missing</p>
+                    <p className="mt-1 text-lg font-semibold text-tomato-dark">{missing.length}</p>
+                  </div>
+                </div>
                 <ul className="mt-3 space-y-2">
-                  {ingredients.map((ing) => {
+                  {orderedIngredients.map((ing) => {
                     const have = ingredientInFridge(ing, fridgeItems)
                     const expiringSoon = have && isIngredientExpiringSoon(ing)
                     return (
@@ -225,17 +247,21 @@ export default function RecipeDetail() {
                   })}
                 </ul>
                 {missing.length > 0 && (
-                  <div className="mt-4 rounded-2xl bg-cream-100/80 p-4">
-                    <p className="text-sm font-medium text-ink">
+                  <div className="mt-4 rounded-2xl border border-cream-200 bg-cream-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+                    <p className="text-sm font-medium text-ink sm:pr-3">
                       You’re missing {missing.length} ingredient{missing.length !== 1 ? 's' : ''}.
                     </p>
                     <button
                       type="button"
                       onClick={handleAddMissingToShopping}
                       disabled={addedToCart}
-                      className="btn-primary mt-3 w-full sm:w-auto"
+                      className={`mt-3 inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition sm:mt-0 ${
+                        addedToCart
+                          ? 'cursor-default bg-sage/20 text-sage-dark'
+                          : 'bg-sage text-white hover:bg-sage-dark'
+                      }`}
                     >
-                      {addedToCart ? 'Added to shopping list' : 'Add missing to shopping list'}
+                      {addedToCart ? '✓ Added to shopping list' : 'Add missing items to shopping list'}
                     </button>
                   </div>
                 )}
@@ -250,7 +276,7 @@ export default function RecipeDetail() {
             <h2 className="mt-8 text-xl font-bold text-ink">Steps</h2>
             <ol className="mt-4 space-y-4">
               {steps.map((step, i) => (
-                <li key={i} className="flex gap-4">
+                <li key={i} className="flex gap-4 rounded-2xl bg-cream-100/60 p-4">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sage/15 text-sm font-bold text-sage-dark">
                     {i + 1}
                   </span>
@@ -258,12 +284,24 @@ export default function RecipeDetail() {
                 </li>
               ))}
             </ol>
-            <Link
-              to={`/cooking?recipeId=${recipe.id}`}
-              className="btn-primary mt-10 flex w-full items-center justify-center"
-            >
-              Start cooking
-            </Link>
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Link
+                to={`/cooking?recipeId=${recipe.id}`}
+                className="btn-primary flex w-full items-center justify-center sm:w-auto"
+              >
+                Start guided cooking
+              </Link>
+              {recipe.url ? (
+                <a
+                  href={recipe.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary flex w-full items-center justify-center sm:w-auto"
+                >
+                  View original recipe
+                </a>
+              ) : null}
+            </div>
             {similar.length > 0 && (
               <>
                 <h2 className="mt-12 text-xl font-bold text-ink">Similar recipes</h2>

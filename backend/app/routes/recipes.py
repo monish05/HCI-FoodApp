@@ -18,6 +18,64 @@ def _split_pipe(value: str) -> List[str]:
     return [part.strip() for part in value.split("|") if part.strip()]
 
 
+def _clean_piece(value: str) -> str:
+    text = (value or "").strip()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"^[-•*]+\s*", "", text)
+    text = re.sub(r"^(?:step\s*)?\d+\s*[\).:-]\s*", "", text, flags=re.IGNORECASE)
+    return text.strip(" -|\t\n\r")
+
+
+def _is_valid_instruction_piece(value: str) -> bool:
+    if not value:
+        return False
+
+    lowered = value.strip().lower()
+    if lowered in {"and", "or", ".", ",", ";", ":", "-"}:
+        return False
+
+    if re.fullmatch(r"[\W_]+", lowered):
+        return False
+
+    return True
+
+
+def _split_ingredients(value: str) -> List[str]:
+    if not value:
+        return []
+    raw = str(value).replace("\r", "\n")
+    parts = re.split(r"\s*\|\s*|\n+|\s*;\s*", raw)
+    cleaned = [_clean_piece(part) for part in parts]
+    return [part for part in cleaned if part]
+
+
+def _split_instructions(value: str) -> List[str]:
+    if not value:
+        return []
+
+    raw = str(value).replace("\r", "\n")
+
+    if "|" in raw:
+        parts = re.split(r"\s*\|\s*", raw)
+    else:
+        numbered_parts = re.split(
+            r"(?:^|\n|\s)(?:step\s*)?\d+\s*[\).:-]\s*",
+            raw,
+            flags=re.IGNORECASE,
+        )
+        numbered_clean = [
+            _clean_piece(part)
+            for part in numbered_parts
+            if _is_valid_instruction_piece(_clean_piece(part))
+        ]
+        if len(numbered_clean) >= 2:
+            return numbered_clean
+        parts = re.split(r"\n+|\s*;\s*", raw)
+
+    cleaned = [_clean_piece(part) for part in parts]
+    return [part for part in cleaned if _is_valid_instruction_piece(part)]
+
+
 def _parse_minutes(value: str) -> int:
     if not value:
         return 0
@@ -135,7 +193,7 @@ async def list_recipes(
     cursor = db.food_recipes.find(query).limit(1000)
     results = []
     async for doc in cursor:
-        ingredients = _split_pipe(doc.get("ingredients", ""))
+        ingredients = _split_ingredients(doc.get("ingredients", ""))
         ingredients_lc = [ing.lower() for ing in ingredients]
         cook_minutes = _parse_total_minutes(doc.get("prep_time", ""), doc.get("cook_time", ""))
 
@@ -176,7 +234,7 @@ async def list_recipes(
                 "cook_time": doc.get("cook_time"),
                 "total_time": cook_minutes,
                 "ingredients": ingredients,
-                "instructions": _split_pipe(doc.get("instructions", "")),
+                "instructions": _split_instructions(doc.get("instructions", "")),
                 "tags": _split_pipe(doc.get("tags", "")),
                 "rating": _parse_float(doc.get("rating")),
                 "vote_count": _parse_int(doc.get("vote_count")),
@@ -304,8 +362,8 @@ async def get_similar(recipe_id: str, user=Depends(get_current_user)):
                 "prep_time": item.get("prep_time"),
                 "cook_time": item.get("cook_time"),
                 "total_time": total_time,
-                "ingredients": _split_pipe(item.get("ingredients", "")),
-                "instructions": _split_pipe(item.get("instructions", "")),
+                "ingredients": _split_ingredients(item.get("ingredients", "")),
+                "instructions": _split_instructions(item.get("instructions", "")),
                 "tags": _split_pipe(item.get("tags", "")),
                 "rating": _parse_float(item.get("rating")),
                 "vote_count": _parse_int(item.get("vote_count")),
@@ -327,7 +385,7 @@ async def get_recipe(recipe_id: str, user=Depends(get_current_user)):
     if not doc:
         return {"recipe": None}
 
-    ingredients = _split_pipe(doc.get("ingredients", ""))
+    ingredients = _split_ingredients(doc.get("ingredients", ""))
     return {
         "recipe": {
             "id": str(doc.get("_id")),
@@ -340,7 +398,7 @@ async def get_recipe(recipe_id: str, user=Depends(get_current_user)):
             "prep_time": doc.get("prep_time"),
             "cook_time": doc.get("cook_time"),
             "ingredients": ingredients,
-            "instructions": _split_pipe(doc.get("instructions", "")),
+            "instructions": _split_instructions(doc.get("instructions", "")),
             "tags": _split_pipe(doc.get("tags", "")),
             "rating": _parse_float(doc.get("rating")),
             "vote_count": _parse_int(doc.get("vote_count")),
