@@ -13,5 +13,6 @@ def _ensure_backend_on_path():
 
 if __name__ == "__main__":
     _ensure_backend_on_path()
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+    root_env = os.path.join(os.path.dirname(__file__), "..", ".env")
+    load_dotenv(root_env)
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
