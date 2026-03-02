@@ -1,7 +1,4 @@
-import csv
 import re
-from functools import lru_cache
-from pathlib import Path
 from typing import List, Optional
 
 from bson import ObjectId
@@ -13,10 +10,6 @@ from ..deps import get_current_user
 
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
-
-IMAGE_LINKS_CSV_PATH = (
-    Path(__file__).resolve().parents[2] / "data" / "food_recipe_image_links.csv"
-)
 
 
 def _split_pipe(value: str) -> List[str]:
@@ -54,35 +47,12 @@ def _normalize_text(value: str) -> str:
     return re.sub(r"[^a-z]+", " ", (value or "").lower()).strip()
 
 
-def _title_key(value: str) -> str:
-    return re.sub(r"\s+", " ", (value or "").strip().lower())
-
-
-@lru_cache(maxsize=1)
-def _load_recipe_image_links() -> dict:
-    links = {}
-    if not IMAGE_LINKS_CSV_PATH.exists():
-        return links
-
-    try:
-        with open(IMAGE_LINKS_CSV_PATH, "r", encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle)
-            for row in reader:
-                title = (row.get("recipe_title") or "").strip()
-                image_url = (row.get("image_url") or "").strip()
-                key = _title_key(title)
-                if key and image_url and key not in links:
-                    links[key] = image_url
-    except Exception:
-        return {}
-
-    return links
-
-
-def _image_for_title(title: str) -> Optional[str]:
-    if not title:
-        return None
-    return _load_recipe_image_links().get(_title_key(title))
+def _image_from_doc(doc: dict) -> Optional[str]:
+    return (
+        (doc.get("image_url") or "").strip()
+        or (doc.get("image") or "").strip()
+        or None
+    )
 
 
 def _ingredient_matches(ingredient: str, fridge_names: List[str]) -> bool:
@@ -197,7 +167,7 @@ async def list_recipes(
             {
                 "id": str(doc.get("_id")),
                 "title": doc.get("recipe_title"),
-                "image": _image_for_title(doc.get("recipe_title")),
+                "image": _image_from_doc(doc),
                 "url": doc.get("url"),
                 "cuisine": doc.get("cuisine"),
                 "course": doc.get("course"),
@@ -326,7 +296,7 @@ async def get_similar(recipe_id: str, user=Depends(get_current_user)):
             {
                 "id": str(item.get("_id")),
                 "title": item.get("recipe_title"),
-                "image": _image_for_title(item.get("recipe_title")),
+                "image": _image_from_doc(item),
                 "url": item.get("url"),
                 "cuisine": item.get("cuisine"),
                 "course": item.get("course"),
@@ -362,7 +332,7 @@ async def get_recipe(recipe_id: str, user=Depends(get_current_user)):
         "recipe": {
             "id": str(doc.get("_id")),
             "title": doc.get("recipe_title"),
-            "image": _image_for_title(doc.get("recipe_title")),
+            "image": _image_from_doc(doc),
             "url": doc.get("url"),
             "cuisine": doc.get("cuisine"),
             "course": doc.get("course"),
