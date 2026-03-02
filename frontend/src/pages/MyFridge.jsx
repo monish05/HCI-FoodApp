@@ -20,6 +20,7 @@ function normalizeName(name) {
 
 export default function MyFridge() {
   const { items, removeItem, updateItem, addItem, loading } = useFridge()
+  const [activeFilter, setActiveFilter] = useState('all')
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
   const [quickAddItem, setQuickAddItem] = useState(null)
@@ -27,8 +28,19 @@ export default function MyFridge() {
   const [showClearModal, setShowClearModal] = useState(false)
 
   const filtered = useMemo(() => {
-    return [...items].sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))
-  }, [items])
+    const list = [...items]
+    if (activeFilter === 'expiring') {
+      return list
+        .filter((item) => (item.daysLeft ?? 0) <= 2)
+        .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))
+    }
+    if (activeFilter === 'low') {
+      return list
+        .filter((item) => (item.count ?? 0) <= 1)
+        .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))
+    }
+    return list.sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))
+  }, [items, activeFilter])
 
   const totalCount = useMemo(
     () => items.reduce((sum, item) => sum + (item.count || 0), 0),
@@ -96,18 +108,42 @@ export default function MyFridge() {
 
         <div className="mb-8 rounded-3xl border border-cream-200 bg-white/80 p-5 shadow-soft sm:p-6">
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-cream-100/80 px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setActiveFilter('all')}
+              className={`rounded-2xl px-4 py-3 text-left transition ${
+                activeFilter === 'all'
+                  ? 'bg-sage/15 ring-2 ring-sage/25'
+                  : 'bg-cream-100/80 hover:bg-cream-200/80'
+              }`}
+            >
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Total items</p>
               <p className="mt-1 text-xl font-bold text-ink">{totalCount}</p>
-            </div>
-            <div className="rounded-2xl bg-cream-100/80 px-4 py-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('expiring')}
+              className={`rounded-2xl px-4 py-3 text-left transition ${
+                activeFilter === 'expiring'
+                  ? 'bg-tomato/10 ring-2 ring-tomato/25'
+                  : 'bg-cream-100/80 hover:bg-cream-200/80'
+              }`}
+            >
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Expiring soon</p>
               <p className="mt-1 text-xl font-bold text-tomato-dark">{expiringSoonCount}</p>
-            </div>
-            <div className="rounded-2xl bg-cream-100/80 px-4 py-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('low')}
+              className={`rounded-2xl px-4 py-3 text-left transition ${
+                activeFilter === 'low'
+                  ? 'bg-amber/20 ring-2 ring-amber/30'
+                  : 'bg-cream-100/80 hover:bg-cream-200/80'
+              }`}
+            >
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Low stock</p>
               <p className="mt-1 text-xl font-bold text-amber-700">{lowStockCount}</p>
-            </div>
+            </button>
           </div>
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -115,13 +151,24 @@ export default function MyFridge() {
               <p className="text-sm font-semibold text-ink">Manage your fridge inventory</p>
               <p className="mt-0.5 text-sm text-ink-muted">Add ingredients and keep your stock updated.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setAddModalOpen(true)}
-              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-sage px-6 text-sm font-semibold text-white shadow-soft transition hover:bg-sage-dark active:scale-[0.98] lg:w-auto"
-            >
-              Add item
-            </button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              {activeFilter !== 'all' ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveFilter('all')}
+                  className="inline-flex h-11 items-center justify-center rounded-2xl border border-cream-200 bg-white px-5 text-sm font-semibold text-ink-muted shadow-soft transition hover:bg-cream-100"
+                >
+                  Clear filter
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(true)}
+                className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-sage px-6 text-sm font-semibold text-white shadow-soft transition hover:bg-sage-dark active:scale-[0.98] sm:w-auto"
+              >
+                Add item
+              </button>
+            </div>
           </div>
 
         </div>
@@ -144,6 +191,7 @@ export default function MyFridge() {
                     <li key={item.id}>
                       <IngredientCard
                         item={item}
+                        expiryVariant={getExpiryVariant(item.daysLeft ?? 7)}
                         onIncrement={() => handleIncrement(item)}
                         onSelect={() => handleSelect(item)}
                         isSelected={selectedId === item.id}
@@ -163,6 +211,7 @@ export default function MyFridge() {
                     <li key={item.id}>
                       <IngredientCard
                         item={item}
+                        expiryVariant={getExpiryVariant(item.daysLeft ?? 7)}
                         onIncrement={() => handleIncrement(item)}
                         onSelect={() => handleSelect(item)}
                         isSelected={selectedId === item.id}
@@ -176,15 +225,28 @@ export default function MyFridge() {
         ) : (
           <div className="card rounded-3xl p-10 text-center sm:p-12">
             <p className="text-base text-ink-muted leading-relaxed">
-              No ingredients yet. Start by adding your first item.
+              {items.length === 0
+                ? 'No ingredients yet. Start by adding your first item.'
+                : 'No ingredients match this filter right now.'}
             </p>
-            <button
-              type="button"
-              onClick={() => setAddModalOpen(true)}
-              className="btn-primary mt-6"
-            >
-              Add item
-            </button>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+              {activeFilter !== 'all' ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveFilter('all')}
+                  className="btn-secondary"
+                >
+                  Show all items
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(true)}
+                className="btn-primary"
+              >
+                Add item
+              </button>
+            </div>
           </div>
         )}
         <div className="mt-10 flex justify-center">

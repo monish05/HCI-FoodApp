@@ -22,16 +22,40 @@ function displayName(value) {
 
 export default function IngredientCard({
   item,
+  expiryVariant = 'sage',
   onIncrement,
   onSelect,
 }) {
   const { name } = item
   const quantityText = formatQuantity(item)
   const initial = displayName(name).charAt(0).toUpperCase() || '?'
+  const daysLeft = Math.max(0, Number(item.daysLeft ?? 0))
+
+  const dayLabel =
+    daysLeft === 0 ? 'Expires today' : daysLeft === 1 ? '1 day left' : `${daysLeft} days left`
+
+  const tone =
+    expiryVariant === 'tomato'
+      ? {
+          card: 'border-l-4 border-l-tomato/80 ring-1 ring-tomato/15',
+          avatar: 'bg-tomato/10 text-tomato-dark',
+          badge: 'bg-tomato/12 text-tomato-dark',
+        }
+      : expiryVariant === 'amber'
+        ? {
+            card: 'border-l-4 border-l-amber/80 ring-1 ring-amber/20',
+            avatar: 'bg-amber/20 text-amber-700',
+            badge: 'bg-amber/20 text-amber-700',
+          }
+        : {
+            card: 'border-l-4 border-l-sage/70 ring-1 ring-sage/15',
+            avatar: 'bg-sage/20 text-sage-dark',
+            badge: 'bg-sage/15 text-sage-dark',
+          }
 
   return (
     <article
-      className="card group inline-flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-cream-200 bg-white p-5 text-center shadow-soft transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-sage/40 hover:shadow-soft-lg"
+      className={`card group inline-flex min-w-0 flex-col items-center gap-3 rounded-2xl border border-cream-200 bg-white p-5 text-center shadow-soft transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-sage/40 hover:shadow-soft-lg ${tone.card}`}
       onClick={() => onSelect?.(item)}
       role="button"
       tabIndex={0}
@@ -40,7 +64,7 @@ export default function IngredientCard({
       }}
     >
       <div
-        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cream-300 text-lg font-semibold text-ink"
+        className={`flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-semibold ${tone.avatar}`}
         aria-hidden
       >
         {initial}
@@ -48,6 +72,9 @@ export default function IngredientCard({
       <h3 className="text-base font-semibold text-ink leading-tight">{displayName(name)}</h3>
       <span className="inline-flex items-center rounded-full bg-cream-100 px-2.5 py-1 text-xs font-semibold text-ink-muted">
         {quantityText}
+      </span>
+      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tone.badge}`}>
+        {dayLabel}
       </span>
       <div className="mt-1 flex w-full items-center justify-center gap-2">
         <button

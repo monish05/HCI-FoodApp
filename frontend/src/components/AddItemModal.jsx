@@ -35,7 +35,6 @@ export default function AddItemModal({ isOpen, onClose }) {
   const [mode, setMode] = useState('quick')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   const [name, setName] = useState('')
   const [count, setCount] = useState(1)
@@ -74,7 +73,6 @@ export default function AddItemModal({ isOpen, onClose }) {
     setMode('quick')
     setSaving(false)
     setError('')
-    setSuccess('')
     setName('')
     setCount(1)
     setDaysLeft(7)
@@ -94,7 +92,6 @@ export default function AddItemModal({ isOpen, onClose }) {
     if (!canQuickAdd) return
     setSaving(true)
     setError('')
-    setSuccess('')
     try {
       await addItem({
         name: name.trim(),
@@ -102,11 +99,7 @@ export default function AddItemModal({ isOpen, onClose }) {
         daysLeft: Number(daysLeft) || 7,
         category,
       })
-      setSuccess('Added to fridge.')
-      setName('')
-      setCount(1)
-      setDaysLeft(7)
-      setCategory('Other')
+      handleClose()
     } catch (err) {
       setError(err?.message || 'Unable to add item right now.')
     } finally {
@@ -118,7 +111,6 @@ export default function AddItemModal({ isOpen, onClose }) {
     if (!canBulkAdd) return
     setSaving(true)
     setError('')
-    setSuccess('')
     try {
       const payload = parsed.map((entry) => ({
         name: entry.name,
@@ -126,9 +118,8 @@ export default function AddItemModal({ isOpen, onClose }) {
         daysLeft: Number(bulkDaysLeft) || 7,
         category: bulkCategory,
       }))
-      const createdCount = await addItems(payload)
-      setSuccess(`Added ${createdCount} item${createdCount !== 1 ? 's' : ''} to fridge.`)
-      setBulkText('')
+      await addItems(payload)
+      handleClose()
     } catch (err) {
       setError(err?.message || 'Unable to add items right now.')
     } finally {
@@ -157,12 +148,6 @@ export default function AddItemModal({ isOpen, onClose }) {
         {error ? (
           <p className="rounded-2xl bg-tomato/10 px-4 py-3 text-sm text-tomato-dark" role="alert">
             {error}
-          </p>
-        ) : null}
-
-        {success ? (
-          <p className="rounded-2xl bg-sage/10 px-4 py-3 text-sm text-sage-dark" role="status">
-            {success}
           </p>
         ) : null}
 
