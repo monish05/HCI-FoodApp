@@ -125,6 +125,10 @@ export default function ShoppingList() {
   )
 
   const allItems = useMemo(() => Object.values(categories || {}).flat(), [categories])
+  const visibleCategories = useMemo(
+    () => Object.entries(categories || {}).filter(([, items]) => Array.isArray(items) && items.length > 0),
+    [categories]
+  )
   const totalItemCount = allItems.length
   const checkedItemCount = allItems.filter((item) => item.checked).length
 
@@ -216,7 +220,7 @@ export default function ShoppingList() {
           </div>
         </div>
         <div className="space-y-8 sm:space-y-10">
-          {Object.entries(categories).map(([catName, items]) => (
+          {visibleCategories.map(([catName, items]) => (
             <section
               key={catName}
               className="rounded-3xl p-2"
@@ -234,7 +238,7 @@ export default function ShoppingList() {
                       <article
                         className={`card group relative inline-flex min-w-0 w-full flex-col items-center gap-3 rounded-2xl p-5 text-center shadow-soft transition-all duration-200 ease-out ${
                           item.checked
-                            ? 'border border-sage/40 bg-sage/10 ring-2 ring-sage/25'
+                            ? 'border border-sage/35 bg-white ring-2 ring-sage/20'
                             : 'border border-cream-200 bg-white hover:-translate-y-0.5 hover:border-sage/40 hover:shadow-soft-lg'
                         }`}
                       >
@@ -283,45 +287,44 @@ export default function ShoppingList() {
                           Qty: {item.count ?? 1}
                         </span>
 
-                        <label className={`mt-1 inline-flex items-center gap-2 text-sm ${item.checked ? 'text-sage-dark font-semibold' : 'text-ink-muted'}`}>
-                          <input
-                            type="checkbox"
-                            checked={item.checked}
-                            onChange={() => handleToggle(catName, item)}
-                            className="h-5 w-5 shrink-0 rounded-full border-cream-300 text-sage focus:ring-sage focus:ring-offset-2"
-                          />
-                          {item.checked ? 'Added to fridge' : 'Add to fridge'}
-                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(catName, item)}
+                          className={`mt-1 inline-flex w-full items-center justify-center rounded-full px-3 py-2 text-sm font-semibold transition ${
+                            item.checked
+                              ? 'border border-cream-200 bg-white text-ink-muted hover:bg-cream-100'
+                              : 'bg-sage text-white shadow-soft hover:bg-sage-dark'
+                          }`}
+                        >
+                          {item.checked ? 'Remove from fridge' : 'Add to fridge'}
+                        </button>
+                        <p className={`text-xs ${item.checked ? 'text-ink-muted' : 'text-sage-dark/90'}`}>
+                          {item.checked ? 'Already in fridge' : 'Adds this item to your fridge'}
+                        </p>
 
                         <div className="mt-1 flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => {
-                              if (item.checked) {
-                                updateItem(catName, item.id, { count: 1, checked: false })
-                                return
-                              }
                               const next = Math.max(1, Number(item.count ?? 1) - 1)
                               updateItem(catName, item.id, { count: next })
                             }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-cream-200 bg-white text-base font-semibold text-ink transition hover:bg-cream-100"
+                            disabled={item.checked}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-cream-200 bg-white text-base font-semibold text-ink transition hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             −
                           </button>
-                          <span className="min-w-[2rem] text-center text-sm font-semibold text-ink">
+                          <span className={`min-w-[2rem] text-center text-sm font-semibold ${item.checked ? 'text-ink-muted' : 'text-ink'}`}>
                             {item.count ?? 1}
                           </span>
                           <button
                             type="button"
                             onClick={() => {
-                              if (item.checked) {
-                                updateItem(catName, item.id, { count: 1, checked: false })
-                                return
-                              }
                               const next = Math.max(1, Number(item.count ?? 1) + 1)
                               updateItem(catName, item.id, { count: next })
                             }}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-cream-200 bg-white text-base font-semibold text-ink transition hover:bg-cream-100"
+                            disabled={item.checked}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-cream-200 bg-white text-base font-semibold text-ink transition hover:bg-cream-100 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             +
                           </button>
