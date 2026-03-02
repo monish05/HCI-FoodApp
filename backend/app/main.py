@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import find_dotenv, load_dotenv
+from fastapi.responses import FileResponse
 
 from .routes.auth import router as auth_router
 from .routes.fridge import router as fridge_router
@@ -11,22 +13,18 @@ from .routes.recipes import router as recipes_router
 from .routes.users import router as users_router
 
 
-load_dotenv(find_dotenv())
+ROOT_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT_DIR / ".env")
 
 
 app = FastAPI(title="HCI FoodApp API")
 
-def _allowed_origins() -> list[str]:
-    raw = os.getenv("WEB_ORIGIN", "http://localhost:5173")
-    origins = [item.strip() for item in raw.split(",") if item.strip()]
-    if "http://localhost:5173" not in origins:
-        origins.append("http://localhost:5173")
-    if "http://127.0.0.1:5173" not in origins:
-        origins.append("http://127.0.0.1:5173")
-    return origins
-
-
-origins = _allowed_origins()
+web_origin_raw = os.getenv("WEB_ORIGIN", "http://localhost:5173")
+origins = [origin.strip() for origin in web_origin_raw.split(",") if origin.strip()]
+if "http://localhost:5173" not in origins:
+    origins.append("http://localhost:5173")
+if "http://127.0.0.1:5173" not in origins:
+    origins.append("http://127.0.0.1:5173")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,3 +45,14 @@ app.include_router(users_router)
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+dist_dir = Path(__file__).resolve().parent.parent / "dist"
+if dist_dir.exists():
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        requested = dist_dir / full_path
+        if requested.is_file():
+            return FileResponse(requested)
+        return FileResponse(dist_dir / "index.html")

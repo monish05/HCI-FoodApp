@@ -1,5 +1,7 @@
 import os
 from functools import lru_cache
+
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 
 
@@ -8,7 +10,7 @@ def get_client() -> AsyncIOMotorClient:
     mongo_uri = os.getenv("MONGODB_URI")
     if not mongo_uri:
         raise RuntimeError("MONGODB_URI is not set")
-    return AsyncIOMotorClient(mongo_uri)
+    return AsyncIOMotorClient(mongo_uri, tlsCAFile=certifi.where())
 
 
 def get_db():

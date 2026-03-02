@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
-import Badge from '../components/Badge'
 import { recipeSteps } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
 import { useShopping } from '../context/ShoppingContext'
