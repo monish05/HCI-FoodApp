@@ -2,7 +2,7 @@ import os
 import sys
 
 import uvicorn
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 
 def _ensure_backend_on_path():
@@ -13,5 +13,7 @@ def _ensure_backend_on_path():
 
 if __name__ == "__main__":
     _ensure_backend_on_path()
-    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+    root_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+    load_dotenv(root_env)
+    load_dotenv(find_dotenv())
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
