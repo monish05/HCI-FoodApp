@@ -22,6 +22,10 @@ export default function Navbar() {
     navigate('/login', { replace: true })
   }
 
+  const inAccountSection = ['/profile', '/analytics', '/planner'].some((path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`)
+  )
+
   const profileLabel = useMemo(() => {
     if (auth.userName) return auth.userName
     if (auth.userEmail) return auth.userEmail.split('@')[0]
@@ -88,21 +92,40 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setProfileOpen((prev) => !prev)}
-                className="inline-flex min-h-11 items-center justify-center rounded-full bg-sage/10 px-4 py-2.5 text-sm font-semibold text-sage-dark transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-sage/20"
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 ${
+                  inAccountSection || profileOpen
+                    ? 'bg-sage/15 text-sage-dark'
+                    : 'bg-cream-100 text-ink-muted hover:bg-cream-200 hover:text-ink'
+                }`}
                 aria-haspopup="menu"
                 aria-expanded={profileOpen}
               >
-                {profileLabel}
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-xs font-bold uppercase">
+                  {String(profileLabel || 'U').slice(0, 1)}
+                </span>
+                <span>{profileLabel}</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${profileOpen ? 'rotate-180' : ''}`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden
+                >
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+                </svg>
               </button>
               {profileOpen && (
                 <div
-                  className="absolute right-0 mt-2 w-48 rounded-2xl bg-white shadow-soft-lg ring-1 ring-ink/5"
+                  className="absolute right-0 mt-2 w-56 rounded-2xl bg-white p-2 shadow-soft-lg ring-1 ring-ink/5"
                   role="menu"
                 >
+                  <div className="mb-2 rounded-xl bg-cream-50 px-3 py-2">
+                    <p className="truncate text-sm font-semibold text-ink">{profileLabel}</p>
+                    <p className="truncate text-xs text-ink-muted">{auth.userEmail || 'Account'}</p>
+                  </div>
                   <NavLink
                     to="/profile"
                     onClick={() => setProfileOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-ink hover:bg-cream-100 rounded-t-2xl"
+                    className="block rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-cream-100"
                     role="menuitem"
                   >
                     Profile
@@ -110,7 +133,7 @@ export default function Navbar() {
                   <NavLink
                     to="/analytics"
                     onClick={() => setProfileOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-ink hover:bg-cream-100"
+                    className="block rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-cream-100"
                     role="menuitem"
                   >
                     Analytics
@@ -118,7 +141,7 @@ export default function Navbar() {
                   <NavLink
                     to="/planner"
                     onClick={() => setProfileOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-ink hover:bg-cream-100"
+                    className="block rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-cream-100"
                     role="menuitem"
                   >
                     Planner
@@ -126,7 +149,7 @@ export default function Navbar() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="block w-full px-4 py-2.5 text-left text-sm text-tomato-dark hover:bg-cream-100 rounded-b-2xl"
+                    className="mt-1 block w-full rounded-xl px-3 py-2.5 text-left text-sm text-tomato-dark hover:bg-cream-100"
                     role="menuitem"
                   >
                     Log out
@@ -198,6 +221,7 @@ export default function Navbar() {
                 </li>
               )
             })}
+            <li className="mt-4 px-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">Account</li>
             <li>
               <NavLink
                 to="/profile"
@@ -205,6 +229,24 @@ export default function Navbar() {
                 className="flex min-h-14 items-center rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
               >
                 Profile
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/analytics"
+                onClick={closeMenu}
+                className="flex min-h-14 items-center rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
+              >
+                Analytics
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/planner"
+                onClick={closeMenu}
+                className="flex min-h-14 items-center rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
+              >
+                Planner
               </NavLink>
             </li>
             <li>
