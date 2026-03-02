@@ -1,0 +1,337 @@
+import re
+from typing import List, Optional
+
+from bson import ObjectId
+
+from fastapi import APIRouter, Depends, Query
+
+from ..db import get_db
+from ..deps import get_current_user
+
+
+router = APIRouter(prefix="/recipes", tags=["recipes"])
+
+
+def _split_pipe(value: str) -> List[str]:
+    if not value:
+        return []
+    return [part.strip() for part in value.split("|") if part.strip()]
+
+
+def _parse_minutes(value: str) -> int:
+    if not value:
+        return 0
+    match = re.search(r"(\d+)", value)
+    return int(match.group(1)) if match else 0
+
+
+def _parse_total_minutes(prep_value: str, cook_value: str) -> int:
+    return _parse_minutes(prep_value) + _parse_minutes(cook_value)
+
+
+def _parse_float(value) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def _parse_int(value) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return 0
+
+
+def _normalize_text(value: str) -> str:
+    return re.sub(r"[^a-z]+", " ", (value or "").lower()).strip()
+
+
+def _ingredient_matches(ingredient: str, fridge_names: List[str]) -> bool:
+    if not ingredient:
+        return False
+    ing_norm = _normalize_text(ingredient)
+    if not ing_norm:
+        return False
+    for name in fridge_names:
+        if not name:
+            continue
+        if name in ing_norm or ing_norm in name:
+            return True
+    return False
+
+
+def _expiry_score(ingredients: List[str], fridge_items: List[dict]) -> int:
+    score = 0
+    if not ingredients or not fridge_items:
+        return score
+    for ing in ingredients:
+        ing_norm = _normalize_text(ing)
+        if not ing_norm:
+            continue
+        for item in fridge_items:
+            name_norm = _normalize_text(item.get("name", ""))
+            if not name_norm:
+                continue
+            if name_norm in ing_norm or ing_norm in name_norm:
+                days_left = int(item.get("days_left", 0) or 0)
+                score += max(0, 7 - days_left)
+                break
+    return score
+
+
+def _normalize_list(items: List[str]) -> List[str]:
+    return [item.strip().lower() for item in items if item and item.strip()]
+
+
+def _matches_any(value: str, options: List[str]) -> bool:
+    if not value or not options:
+        return False
+    value_lc = value.strip().lower()
+    return any(value_lc == opt for opt in options)
+
+
+@router.get("")
+async def list_recipes(
+    limit: int = Query(50, ge=1, le=200),
+    q: Optional[str] = None,
+    course: Optional[str] = None,
+    max_time: Optional[int] = None,
+    sort: Optional[str] = None,
+    ignore_prefs: bool = False,
+    user=Depends(get_current_user),
+):
+    db = get_db()
+    prefs = await db.preferences.find_one({"user_id": user["_id"]}) or {}
+    fridge_items = await db.fridge_items.find({"user_id": user["_id"]}).to_list(length=None)
+    fridge_names = [_normalize_text(item.get("name", "")) for item in fridge_items]
+
+    cuisines = _normalize_list(prefs.get("cuisines", []))
+    diets = _normalize_list(prefs.get("diets", []))
+    avoid_ingredients = _normalize_list(prefs.get("avoid_ingredients", []))
+    max_cook_time = prefs.get("max_cook_time")
+
+    query = {}
+    or_filters = []
+    is_search = bool(q and q.strip())
+    if is_search:
+        q_value = q.strip()
+        or_filters.append({"recipe_title": {"$regex": q_value, "$options": "i"}})
+        or_filters.append({"tags": {"$regex": q_value, "$options": "i"}})
+        or_filters.append({"ingredients": {"$regex": q_value, "$options": "i"}})
+    if or_filters:
+        query["$or"] = or_filters
+    if course and course.strip():
+        query["course"] = {"$regex": f"^{re.escape(course.strip())}$", "$options": "i"}
+
+    cursor = db.food_recipes.find(query).limit(1000)
+    results = []
+    async for doc in cursor:
+        ingredients = _split_pipe(doc.get("ingredients", ""))
+        ingredients_lc = [ing.lower() for ing in ingredients]
+        cook_minutes = _parse_total_minutes(doc.get("prep_time", ""), doc.get("cook_time", ""))
+
+        if not is_search and not ignore_prefs:
+            if avoid_ingredients and any(
+                any(avoid in ing for ing in ingredients_lc) for avoid in avoid_ingredients
+            ):
+                continue
+            if max_time and cook_minutes and cook_minutes > max_time:
+                continue
+            if max_cook_time and cook_minutes and cook_minutes > max_cook_time:
+                continue
+
+            score = 0
+            if _matches_any(doc.get("cuisine"), cuisines):
+                score += 2
+            if _matches_any(doc.get("diet"), diets):
+                score += 2
+        else:
+            score = 0
+
+        can_make = False
+        if ingredients:
+            can_make = all(_ingredient_matches(ing, fridge_names) for ing in ingredients)
+        expiring_score = _expiry_score(ingredients, fridge_items)
+        is_expiring_soon = expiring_score > 0
+
+        results.append(
+            {
+                "id": str(doc.get("_id")),
+                "title": doc.get("recipe_title"),
+                "url": doc.get("url"),
+                "cuisine": doc.get("cuisine"),
+                "course": doc.get("course"),
+                "diet": doc.get("diet"),
+                "prep_time": doc.get("prep_time"),
+                "cook_time": doc.get("cook_time"),
+                "total_time": cook_minutes,
+                "ingredients": ingredients,
+                "instructions": _split_pipe(doc.get("instructions", "")),
+                "tags": _split_pipe(doc.get("tags", "")),
+                "rating": _parse_float(doc.get("rating")),
+                "vote_count": _parse_int(doc.get("vote_count")),
+                "cook_minutes": cook_minutes,
+                "_score": score,
+                "_can_make": can_make,
+                "expiring_score": expiring_score,
+                "is_expiring_soon": is_expiring_soon,
+            }
+        )
+
+    sort_key = (sort or "relevance").lower()
+    if sort_key == "cook_time":
+        results.sort(key=lambda r: (r.get("cook_minutes", 0), -r.get("_score", 0)))
+    elif sort_key == "rating":
+        results.sort(key=lambda r: (r.get("rating", 0), r.get("_score", 0)), reverse=True)
+    elif sort_key == "vote_count":
+        results.sort(key=lambda r: (r.get("vote_count", 0), r.get("_score", 0)), reverse=True)
+    elif sort_key == "expiring":
+        results.sort(
+            key=lambda r: (
+                r.get("expiring_score", 0),
+                1 if r.get("_can_make") else 0,
+                r.get("_score", 0),
+            ),
+            reverse=True,
+        )
+    else:
+        results.sort(
+            key=lambda r: (
+                1 if r.get("_can_make") else 0,
+                r.get("_score", 0),
+                -(r.get("cook_minutes", 0) or 0),
+            ),
+            reverse=True,
+        )
+
+    trimmed = results[:limit]
+    for item in trimmed:
+        item.pop("_score", None)
+        item.pop("cook_minutes", None)
+        item.pop("_can_make", None)
+    return {"recipes": trimmed}
+
+
+@router.get("/filters")
+async def list_filters():
+    db = get_db()
+    cuisines_cursor = db.food_recipes.aggregate([
+        {"$match": {"cuisine": {"$exists": True, "$ne": None, "$type": "string"}}},
+        {"$project": {"cuisine": {"$trim": {"input": "$cuisine"}}}},
+        {"$match": {"cuisine": {"$ne": ""}}},
+        {"$group": {"_id": "$cuisine", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 7},
+    ])
+    diets_cursor = db.food_recipes.aggregate([
+        {"$match": {"diet": {"$exists": True, "$ne": None, "$type": "string"}}},
+        {"$project": {"diet": {"$trim": {"input": "$diet"}}}},
+        {"$match": {"diet": {"$ne": ""}}},
+        {"$group": {"_id": "$diet", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 7},
+    ])
+    cuisines = [doc["_id"] async for doc in cuisines_cursor]
+    diets = [doc["_id"] async for doc in diets_cursor]
+    return {"cuisines": cuisines, "diets": diets}
+
+
+@router.get("/ingredients")
+async def list_ingredients(limit: int = Query(500, ge=1, le=2000), user=Depends(get_current_user)):
+    db = get_db()
+    pipeline = [
+        {"$match": {"ingredients": {"$exists": True, "$ne": None, "$type": "string"}}},
+        {"$project": {"ingredients": {"$split": ["$ingredients", "|"]}}},
+        {"$unwind": "$ingredients"},
+        {"$project": {"ingredient": {"$trim": {"input": "$ingredients"}}}},
+        {"$match": {"ingredient": {"$ne": ""}}},
+        {"$group": {"_id": "$ingredient"}},
+        {"$sort": {"_id": 1}},
+        {"$limit": limit},
+    ]
+    cursor = db.food_recipes.aggregate(pipeline)
+    ingredients = [doc["_id"] async for doc in cursor]
+    return {"ingredients": ingredients}
+
+
+@router.get("/{recipe_id}/similar")
+async def get_similar(recipe_id: str, user=Depends(get_current_user)):
+    db = get_db()
+    doc = None
+    try:
+        doc = await db.food_recipes.find_one({"_id": ObjectId(recipe_id)})
+    except Exception:
+        doc = await db.food_recipes.find_one({"_id": recipe_id})
+
+    if not doc:
+        return {"recipes": []}
+
+    filters = []
+    if doc.get("cuisine"):
+        filters.append({"cuisine": {"$regex": f"^{re.escape(doc.get('cuisine'))}$", "$options": "i"}})
+    if doc.get("diet"):
+        filters.append({"diet": {"$regex": f"^{re.escape(doc.get('diet'))}$", "$options": "i"}})
+    if doc.get("course"):
+        filters.append({"course": {"$regex": f"^{re.escape(doc.get('course'))}$", "$options": "i"}})
+
+    query = {"_id": {"$ne": doc.get("_id")}}
+    if filters:
+        query["$or"] = filters
+
+    cursor = db.food_recipes.find(query).limit(8)
+    results = []
+    async for item in cursor:
+        total_time = _parse_total_minutes(item.get("prep_time", ""), item.get("cook_time", ""))
+        results.append(
+            {
+                "id": str(item.get("_id")),
+                "title": item.get("recipe_title"),
+                "url": item.get("url"),
+                "cuisine": item.get("cuisine"),
+                "course": item.get("course"),
+                "diet": item.get("diet"),
+                "prep_time": item.get("prep_time"),
+                "cook_time": item.get("cook_time"),
+                "total_time": total_time,
+                "ingredients": _split_pipe(item.get("ingredients", "")),
+                "instructions": _split_pipe(item.get("instructions", "")),
+                "tags": _split_pipe(item.get("tags", "")),
+                "rating": _parse_float(item.get("rating")),
+                "vote_count": _parse_int(item.get("vote_count")),
+            }
+        )
+
+    return {"recipes": results}
+
+
+@router.get("/{recipe_id}")
+async def get_recipe(recipe_id: str, user=Depends(get_current_user)):
+    db = get_db()
+    doc = None
+    try:
+        doc = await db.food_recipes.find_one({"_id": ObjectId(recipe_id)})
+    except Exception:
+        doc = await db.food_recipes.find_one({"_id": recipe_id})
+
+    if not doc:
+        return {"recipe": None}
+
+    ingredients = _split_pipe(doc.get("ingredients", ""))
+    return {
+        "recipe": {
+            "id": str(doc.get("_id")),
+            "title": doc.get("recipe_title"),
+            "url": doc.get("url"),
+            "cuisine": doc.get("cuisine"),
+            "course": doc.get("course"),
+            "diet": doc.get("diet"),
+            "prep_time": doc.get("prep_time"),
+            "cook_time": doc.get("cook_time"),
+            "ingredients": ingredients,
+            "instructions": _split_pipe(doc.get("instructions", "")),
+            "tags": _split_pipe(doc.get("tags", "")),
+            "rating": _parse_float(doc.get("rating")),
+            "vote_count": _parse_int(doc.get("vote_count")),
+        }
+    }

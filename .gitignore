@@ -20,6 +20,7 @@ dist-ssr
 # Env
 .env
 .env.local
+.venv/
 
 # Editor
 .vscode/*

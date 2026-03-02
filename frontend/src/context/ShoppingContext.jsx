@@ -39,10 +39,77 @@ export function ShoppingProvider({ children }) {
     })
   }, [])
 
+  const updateItem = useCallback((catKey, id, updates) => {
+    setCategories((prev) => {
+      if (!prev[catKey]) return prev
+      return {
+        ...prev,
+        [catKey]: prev[catKey].map((item) =>
+          item.id === id ? { ...item, ...updates } : item
+        ),
+      }
+    })
+  }, [])
+
+  const removeItem = useCallback((catKey, id) => {
+    setCategories((prev) => {
+      if (!prev[catKey]) return prev
+      return {
+        ...prev,
+        [catKey]: prev[catKey].filter((item) => item.id !== id),
+      }
+    })
+  }, [])
+
+  const moveItem = useCallback((fromKey, toKey, id) => {
+    if (!fromKey || !toKey || fromKey === toKey) return
+    setCategories((prev) => {
+      if (!prev[fromKey] || !prev[toKey]) return prev
+      const item = prev[fromKey].find((entry) => entry.id === id)
+      if (!item) return prev
+      return {
+        ...prev,
+        [fromKey]: prev[fromKey].filter((entry) => entry.id !== id),
+        [toKey]: [...prev[toKey], item],
+      }
+    })
+  }, [])
+
+  const clearCategory = useCallback((catKey) => {
+    setCategories((prev) => {
+      if (!prev[catKey]) return prev
+      return {
+        ...prev,
+        [catKey]: [],
+      }
+    })
+  }, [])
+
+  const clearChecked = useCallback(() => {
+    setCategories((prev) => {
+      const next = {}
+      for (const key of Object.keys(prev)) {
+        next[key] = (prev[key] || []).filter((item) => !item.checked)
+      }
+      return next
+    })
+  }, [])
+
+  const clearAll = useCallback(() => {
+    setCategories((prev) => {
+      const next = {}
+      for (const key of Object.keys(prev)) {
+        next[key] = []
+      }
+      return next
+    })
+  }, [])
+
   const addItemsToCategory = useCallback((categoryKey, names) => {
     const list = names.filter((n) => n?.trim()).map((name, i) => ({
       id: `item-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
       name: name.trim(),
+      count: 1,
       checked: false,
     }))
     if (list.length === 0) return 0
@@ -56,13 +123,57 @@ export function ShoppingProvider({ children }) {
     return list.length
   }, [])
 
+  const addItemToCategory = useCallback((categoryKey, name, count = 1) => {
+    const trimmed = name?.trim()
+    if (!trimmed) return 0
+    const item = {
+      id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: trimmed,
+      count: Math.max(1, Number(count) || 1),
+      checked: false,
+    }
+    setCategories((prev) => {
+      const existing = prev[categoryKey] || []
+      return {
+        ...prev,
+        [categoryKey]: [...existing, item],
+      }
+    })
+    return 1
+  }, [])
+
   const addItems = useCallback((names) => {
     return addItemsToCategory(FROM_RECEIPT, names)
   }, [addItemsToCategory])
 
   const value = useMemo(
-    () => ({ categories, setCategories, toggle, addItems, addItemsToCategory }),
-    [categories, toggle, addItems, addItemsToCategory]
+    () => ({
+      categories,
+      setCategories,
+      toggle,
+      addItems,
+      addItemsToCategory,
+      addItemToCategory,
+      updateItem,
+      removeItem,
+      moveItem,
+      clearCategory,
+      clearChecked,
+      clearAll,
+    }),
+    [
+      categories,
+      toggle,
+      addItems,
+      addItemsToCategory,
+      addItemToCategory,
+      updateItem,
+      removeItem,
+      moveItem,
+      clearCategory,
+      clearChecked,
+      clearAll,
+    ]
   )
 
   return (

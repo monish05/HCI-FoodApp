@@ -1,17 +1,25 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import Badge from '../components/Badge'
-import { recipes, recipeSteps } from '../data/mockData'
+import { recipeSteps } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
 import { useShopping } from '../context/ShoppingContext'
 import { ingredientInFridge, getRecipeIngredients } from '../utils/recipeFridge'
+import { getRecipe, getSimilarRecipes } from '../api/client'
+import { adaptRecipe } from '../utils/recipeAdapter'
+import { useAuth } from '../context/AuthContext'
+import RecipeCard from '../components/RecipeCard'
 
 const FOR_RECIPES_CATEGORY = 'For recipes'
 
 export default function RecipeDetail() {
   const { id } = useParams()
-  const recipe = recipes.find((r) => r.id === id)
+  const auth = useAuth()
+  const [recipe, setRecipe] = useState(null)
+  const [similar, setSimilar] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const { items: fridgeItems } = useFridge()
   const { addItemsToCategory } = useShopping()
   const [imgError, setImgError] = useState(false)
@@ -26,12 +34,81 @@ export default function RecipeDetail() {
     return { inFridge: inFridgeList, missing: missingList }
   }, [ingredients, fridgeItems])
 
+  const normalizeName = (value) =>
+    (value || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const isIngredientExpiringSoon = (ingredient) => {
+    const ing = normalizeName(ingredient)
+    if (!ing) return false
+    return (fridgeItems || []).some((item) => {
+      const name = normalizeName(item.name)
+      if (!name) return false
+      const matches = name.includes(ing) || ing.includes(name)
+      return matches && (item.daysLeft ?? 9999) <= 2
+    })
+  }
+
+  useEffect(() => {
+    let isMounted = true
+    async function loadRecipe() {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      try {
+        const data = await getRecipe(auth.token, id)
+        if (!isMounted) return
+        const adapted = data.recipe ? adaptRecipe(data.recipe) : null
+        setRecipe(adapted)
+        if (data.recipe) {
+          const similarData = await getSimilarRecipes(auth.token, id)
+          if (!isMounted) return
+          setSimilar((similarData.recipes || []).map(adaptRecipe))
+        }
+      } catch (err) {
+        if (!isMounted) return
+        setError(err.message || 'Unable to load recipe')
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+    loadRecipe()
+    return () => { isMounted = false }
+  }, [auth.token, id])
+
   const steps = (recipe?.steps && recipe.steps.length > 0) ? recipe.steps : recipeSteps
 
   const handleAddMissingToShopping = () => {
     if (missing.length === 0) return
     addItemsToCategory(FOR_RECIPES_CATEGORY, missing)
     setAddedToCart(true)
+  }
+
+  if (loading) {
+    return (
+      <PageContainer>
+        <div className="page-content">
+          <div className="card rounded-3xl p-12 text-center">
+            <p className="text-ink-muted leading-relaxed">Loading recipe...</p>
+          </div>
+        </div>
+      </PageContainer>
+    )
+  }
+
+  if (error) {
+    return (
+      <PageContainer>
+        <div className="page-content">
+          <div className="card rounded-3xl p-12 text-center">
+            <p className="text-ink-muted leading-relaxed">{error}</p>
+            <Link to="/recipes" className="btn-primary mt-6 inline-block">
+              Back to library
+            </Link>
+          </div>
+        </div>
+      </PageContainer>
+    )
   }
 
   if (!recipe) {
@@ -78,12 +155,23 @@ export default function RecipeDetail() {
               {recipe.title}
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {(recipe.tags || []).map((tag) => (
+              {recipe.cuisine && <Badge variant="sage">{recipe.cuisine}</Badge>}
+              {recipe.diet && <Badge variant="sage">{recipe.diet}</Badge>}
+              {recipe.course && <Badge variant="sage">{recipe.course}</Badge>}
+              {(recipe.tags || []).slice(0, 3).map((tag) => (
                 <Badge key={tag} variant="sage">{tag}</Badge>
               ))}
-              {recipe.cookTime && (
-                <span className="text-sm text-ink-muted">{recipe.cookTime} min</span>
+              {recipe.prepTime && (
+                <span className="text-sm text-ink-muted">Prep {recipe.prepTime} min</span>
               )}
+              {recipe.cookTime && (
+                <span className="text-sm text-ink-muted">Cook {recipe.cookTime} min</span>
+              )}
+              {recipe.rating ? (
+                <span className="text-sm text-ink-muted">
+                  ★ {recipe.rating.toFixed(1)}{recipe.voteCount ? ` (${recipe.voteCount})` : ''}
+                </span>
+              ) : null}
             </div>
 
             {/* Ingredients */}
@@ -93,6 +181,7 @@ export default function RecipeDetail() {
                 <ul className="mt-3 space-y-2">
                   {ingredients.map((ing) => {
                     const have = ingredientInFridge(ing, fridgeItems)
+                    const expiringSoon = have && isIngredientExpiringSoon(ing)
                     return (
                       <li key={ing} className="flex items-center gap-3">
                         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm ${have ? 'bg-sage/15 text-sage-dark' : 'bg-tomato/15 text-tomato-dark'}`}>
@@ -101,6 +190,9 @@ export default function RecipeDetail() {
                         <span className={have ? 'text-ink' : 'text-ink-muted'}>
                           {ing}
                         </span>
+                        {expiringSoon && (
+                          <Badge variant="tomato">Expiring soon</Badge>
+                        )}
                         {!have && (
                           <span className="ml-auto shrink-0 rounded-full bg-tomato/10 px-2.5 py-0.5 text-xs font-medium text-tomato-dark">
                             Missing
@@ -145,11 +237,21 @@ export default function RecipeDetail() {
               ))}
             </ol>
             <Link
-              to="/cooking"
+              to={`/cooking?recipeId=${recipe.id}`}
               className="btn-primary mt-10 flex w-full items-center justify-center"
             >
               Start cooking
             </Link>
+            {similar.length > 0 && (
+              <>
+                <h2 className="mt-12 text-xl font-bold text-ink">Similar recipes</h2>
+                <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {similar.map((item) => (
+                    <RecipeCard key={item.id} recipe={item} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

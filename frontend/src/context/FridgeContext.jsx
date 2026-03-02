@@ -1,62 +1,136 @@
 import { createContext, useContext, useMemo, useCallback, useState, useEffect } from 'react'
-import { fridgeItems as defaultItems } from '../data/mockData'
-
-const STORAGE_KEY = 'fridge-to-feast-fridge'
-
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaultItems
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : defaultItems
-  } catch {
-    return defaultItems
-  }
-}
+import { useAuth } from './AuthContext'
+import {
+  getFridgeItems,
+  addFridgeItem,
+  updateFridgeItem,
+  deleteFridgeItem,
+} from '../api/client'
 
 const FridgeContext = createContext(null)
 
 export function FridgeProvider({ children }) {
-  const [items, setItems] = useState(load)
+  const auth = useAuth()
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-    } catch (_) {}
-  }, [items])
-
-  const addItem = useCallback((item) => {
-    const entry = {
-      id: item.id || `f${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      name: item.name?.trim() || 'Unknown',
-      amount: typeof item.amount === 'number' ? item.amount : 1,
-      unit: item.unit || 'count',
-      daysLeft: typeof item.daysLeft === 'number' ? item.daysLeft : 7,
+    let isMounted = true
+    async function loadItems() {
+      if (!auth.token) {
+        if (isMounted) {
+          setItems([])
+          setLoading(false)
+        }
+        return
+      }
+      try {
+        const data = await getFridgeItems(auth.token)
+        if (isMounted) {
+          setItems(
+            (data || []).map((item) => ({
+              id: item.id,
+              name: item.name,
+              count: item.count,
+              daysLeft: item.days_left ?? item.daysLeft ?? 7,
+              category: item.category || 'Other',
+            }))
+          )
+        }
+      } catch (_) {
+        if (isMounted) setItems([])
+      } finally {
+        if (isMounted) setLoading(false)
+      }
     }
-    setItems((prev) => [...prev, entry])
-    return entry.id
-  }, [])
+    loadItems()
+    return () => { isMounted = false }
+  }, [auth.token])
 
-  const addItems = useCallback((list) => {
-    const base = Date.now()
-    const next = list.map((item, i) => ({
-      id: `f${base}-${i}-${Math.random().toString(36).slice(2, 9)}`,
+  const refresh = useCallback(async () => {
+    if (!auth.token) return
+    const data = await getFridgeItems(auth.token)
+    setItems(
+      (data || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        count: item.count,
+        daysLeft: item.days_left ?? item.daysLeft ?? 7,
+        category: item.category || 'Other',
+      }))
+    )
+  }, [auth.token])
+
+  const addItem = useCallback(async (item) => {
+    if (!auth.token) return null
+    const entry = await addFridgeItem(auth.token, {
       name: item.name?.trim() || 'Unknown',
-      amount: typeof item.amount === 'number' ? item.amount : 1,
-      unit: item.unit || 'count',
-      daysLeft: typeof item.daysLeft === 'number' ? item.daysLeft : 7,
-    }))
-    setItems((prev) => [...prev, ...next])
-    return next.length
-  }, [])
+      count: typeof item.count === 'number' ? item.count : 1,
+      days_left: typeof item.daysLeft === 'number' ? item.daysLeft : 7,
+      category: item.category || 'Other',
+    })
+    const normalized = {
+      id: entry.id,
+      name: entry.name,
+      count: entry.count,
+      daysLeft: entry.days_left ?? entry.daysLeft ?? 7,
+      category: entry.category || 'Other',
+    }
+    setItems((prev) => [...prev, normalized])
+    return normalized.id
+  }, [auth.token])
 
-  const removeItem = useCallback((id) => {
+  const addItems = useCallback(async (list) => {
+    if (!auth.token || list.length === 0) return 0
+    const created = await Promise.all(
+      list.map((item) =>
+        addFridgeItem(auth.token, {
+          name: item.name?.trim() || 'Unknown',
+          count: typeof item.count === 'number' ? item.count : 1,
+          days_left: typeof item.daysLeft === 'number' ? item.daysLeft : 7,
+          category: item.category || 'Other',
+        })
+      )
+    )
+    const normalized = created.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      count: entry.count,
+      daysLeft: entry.days_left ?? entry.daysLeft ?? 7,
+      category: entry.category || 'Other',
+    }))
+    setItems((prev) => [...prev, ...normalized])
+    return normalized.length
+  }, [auth.token])
+
+  const updateItem = useCallback(async (id, updates) => {
+    if (!auth.token) return null
+    const payload = {}
+    if (updates.name != null) payload.name = updates.name
+    if (updates.count != null) payload.count = updates.count
+    if (updates.daysLeft != null) payload.days_left = updates.daysLeft
+    if (updates.category != null) payload.category = updates.category
+    const updated = await updateFridgeItem(auth.token, id, payload)
+    const normalized = {
+      id: updated.id,
+      name: updated.name,
+      count: updated.count,
+      daysLeft: updated.days_left ?? updated.daysLeft ?? 7,
+      category: updated.category || 'Other',
+    }
+    setItems((prev) => prev.map((item) => (item.id === id ? normalized : item)))
+    return normalized
+  }, [auth.token])
+
+  const removeItem = useCallback(async (id) => {
+    if (!auth.token) return
+    await deleteFridgeItem(auth.token, id)
     setItems((prev) => prev.filter((i) => i.id !== id))
-  }, [])
+  }, [auth.token])
 
   const value = useMemo(
-    () => ({ items, setItems, addItem, addItems, removeItem }),
-    [items, addItem, addItems, removeItem]
+    () => ({ items, setItems, loading, addItem, addItems, updateItem, removeItem, refresh }),
+    [items, loading, addItem, addItems, updateItem, removeItem, refresh]
   )
 
   return (
