@@ -1,4 +1,4 @@
-# Build stage
+# Build stage (frontend)
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
@@ -6,13 +6,22 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Run stage (Hugging Face Spaces: runs as uid 1000; node image already has "node" user with uid 1000)
-FROM node:20-alpine
-USER node
-WORKDIR /home/node/app
+# Run stage (backend + static frontend)
+FROM python:3.11-slim
+WORKDIR /app
 
-COPY --from=build --chown=node /app/dist ./dist
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
-EXPOSE 7860
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend ./backend
+COPY --from=build /app/dist ./backend/dist
+
 ENV PORT=7860
-CMD ["sh", "-c", "npx --yes serve -s dist -l ${PORT}"]
+ENV UVICORN_RELOAD=false
+EXPOSE 7860
+
+CMD ["python", "/app/backend/main.py"]

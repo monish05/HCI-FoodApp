@@ -22,17 +22,13 @@ dist-ssr
 .env.local
 .venv/
 
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
 
 # Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+backend/data/food_recipes.csv

@@ -9,16 +9,13 @@ JWT_ALGORITHM = "HS256"
 
 
 def hash_password(password: str) -> str:
-    password_bytes = password.encode("utf-8")
-    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    if not password or not hashed:
-        return False
     try:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
-    except ValueError:
+    except Exception:
         return False
 
 
