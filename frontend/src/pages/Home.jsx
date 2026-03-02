@@ -7,6 +7,7 @@ import { scoreRecipe, getRecipeIngredients, ingredientInFridge } from '../utils/
 import { getRecipes } from '../api/client'
 import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
+import { Link } from 'react-router-dom'
 
 const FILTERS = [
   { value: null, label: 'All' },
@@ -130,13 +131,15 @@ export default function Home() {
             <h2 className="text-sm font-semibold text-ink-muted mb-2">Use up soon</h2>
             <div className="flex flex-wrap gap-2">
               {useUpSoonItems.slice(0, 3).map((item) => (
-                <a
+                <Link
                   key={item.id}
-                  href={`/recipes?q=${encodeURIComponent(item.name)}`}
-                  className="inline-flex items-center gap-1 rounded-full bg-tomato/10 px-2.5 py-1 text-xs font-medium text-tomato-dark transition hover:bg-tomato/20"
+                  to={`/recipes?q=${encodeURIComponent(item.name)}&source=use-up-soon`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-tomato/10 px-3 py-1.5 text-xs font-semibold text-tomato-dark transition hover:bg-tomato/20"
                 >
-                  {item.name} <span className="opacity-70">· {item.daysLeft}d</span>
-                </a>
+                  <span>{item.name}</span>
+                  <span className="opacity-70">· {item.daysLeft}d</span>
+                  <span className="opacity-80">→ Find recipes</span>
+                </Link>
               ))}
             </div>
           </section>

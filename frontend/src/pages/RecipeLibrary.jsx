@@ -7,18 +7,42 @@ import { scoreRecipe } from '../utils/recipeFridge'
 import { getRecipes } from '../api/client'
 import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
+import { useSearchParams } from 'react-router-dom'
 
 export default function RecipeLibrary() {
   const auth = useAuth()
   const { items: fridgeItems } = useFridge()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const querySearch = searchParams.get('q') || ''
+  const queryCourse = searchParams.get('course') || 'All'
+  const queryMaxTime = searchParams.get('maxTime') || 'Any'
+  const querySort = searchParams.get('sort') || 'relevance'
+  const source = searchParams.get('source') || ''
   const [recipes, setRecipes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [search, setSearch] = useState('')
-  const [course, setCourse] = useState('All')
-  const [maxTime, setMaxTime] = useState('Any')
-  const [sortBy, setSortBy] = useState('relevance')
+  const [search, setSearch] = useState(querySearch)
+  const [course, setCourse] = useState(queryCourse)
+  const [maxTime, setMaxTime] = useState(queryMaxTime)
+  const [sortBy, setSortBy] = useState(querySort)
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  useEffect(() => {
+    setSearch(querySearch)
+    setCourse(queryCourse)
+    setMaxTime(queryMaxTime)
+    setSortBy(querySort)
+  }, [querySearch, queryCourse, queryMaxTime, querySort])
+
+  useEffect(() => {
+    const next = {}
+    if (search.trim()) next.q = search.trim()
+    if (course !== 'All') next.course = course
+    if (maxTime !== 'Any') next.maxTime = maxTime
+    if (sortBy !== 'relevance') next.sort = sortBy
+    if (source) next.source = source
+    setSearchParams(next, { replace: true })
+  }, [search, course, maxTime, sortBy, source, setSearchParams])
 
   useEffect(() => {
     let isMounted = true
@@ -54,6 +78,28 @@ export default function RecipeLibrary() {
           title="Recipe library"
           subtitle="Search and filter recipes"
         />
+
+        {search.trim() && source === 'use-up-soon' ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-tomato/20 bg-tomato/5 px-4 py-3 text-sm">
+            <p className="font-medium text-tomato-dark">
+              Showing recipes that can use <span className="font-semibold">{search.trim()}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('')
+                const next = {}
+                if (course !== 'All') next.course = course
+                if (maxTime !== 'Any') next.maxTime = maxTime
+                if (sortBy !== 'relevance') next.sort = sortBy
+                setSearchParams(next, { replace: true })
+              }}
+              className="rounded-full border border-cream-200 bg-white px-3 py-1.5 text-xs font-semibold text-ink-muted hover:bg-cream-100"
+            >
+              Show all recipes
+            </button>
+          </div>
+        ) : null}
 
         <div className="card mb-8 rounded-3xl p-6 sm:p-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
