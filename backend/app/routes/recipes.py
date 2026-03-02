@@ -47,6 +47,14 @@ def _normalize_text(value: str) -> str:
     return re.sub(r"[^a-z]+", " ", (value or "").lower()).strip()
 
 
+def _image_from_doc(doc: dict) -> Optional[str]:
+    return (
+        (doc.get("image_url") or "").strip()
+        or (doc.get("image") or "").strip()
+        or None
+    )
+
+
 def _ingredient_matches(ingredient: str, fridge_names: List[str]) -> bool:
     if not ingredient:
         return False
@@ -159,6 +167,7 @@ async def list_recipes(
             {
                 "id": str(doc.get("_id")),
                 "title": doc.get("recipe_title"),
+                "image": _image_from_doc(doc),
                 "url": doc.get("url"),
                 "cuisine": doc.get("cuisine"),
                 "course": doc.get("course"),
@@ -287,6 +296,7 @@ async def get_similar(recipe_id: str, user=Depends(get_current_user)):
             {
                 "id": str(item.get("_id")),
                 "title": item.get("recipe_title"),
+                "image": _image_from_doc(item),
                 "url": item.get("url"),
                 "cuisine": item.get("cuisine"),
                 "course": item.get("course"),
@@ -322,6 +332,7 @@ async def get_recipe(recipe_id: str, user=Depends(get_current_user)):
         "recipe": {
             "id": str(doc.get("_id")),
             "title": doc.get("recipe_title"),
+            "image": _image_from_doc(doc),
             "url": doc.get("url"),
             "cuisine": doc.get("cuisine"),
             "course": doc.get("course"),

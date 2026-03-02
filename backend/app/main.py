@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -12,15 +13,23 @@ from .routes.recipes import router as recipes_router
 from .routes.users import router as users_router
 
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT_DIR / ".env")
+
+
 app = FastAPI(title="HCI FoodApp API")
 
-origins = [
-    os.getenv("WEB_ORIGIN", "http://localhost:5173"),
-]
+web_origin_raw = os.getenv("WEB_ORIGIN", "http://localhost:5173")
+origins = [origin.strip() for origin in web_origin_raw.split(",") if origin.strip()]
+if "http://localhost:5173" not in origins:
+    origins.append("http://localhost:5173")
+if "http://127.0.0.1:5173" not in origins:
+    origins.append("http://127.0.0.1:5173")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

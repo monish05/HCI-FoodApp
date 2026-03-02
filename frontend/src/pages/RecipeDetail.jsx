@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
-import Badge from '../components/Badge'
 import { recipeSteps } from '../data/mockData'
 import { useFridge } from '../context/FridgeContext'
 import { useShopping } from '../context/ShoppingContext'
@@ -55,6 +54,7 @@ export default function RecipeDetail() {
     let isMounted = true
     async function loadRecipe() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
+      setImgError(false)
       try {
         const data = await getRecipe(auth.token, id)
         if (!isMounted) return
@@ -77,6 +77,9 @@ export default function RecipeDetail() {
   }, [auth.token, id])
 
   const steps = (recipe?.steps && recipe.steps.length > 0) ? recipe.steps : recipeSteps
+  const ratingValue = Number(recipe?.rating || 0)
+  const ratingRounded = Math.max(0, Math.min(5, Math.round(ratingValue)))
+  const ratingStars = '★'.repeat(ratingRounded) + '☆'.repeat(5 - ratingRounded)
 
   const handleAddMissingToShopping = () => {
     if (missing.length === 0) return
@@ -136,44 +139,63 @@ export default function RecipeDetail() {
           ← Back to library
         </Link>
         <div className="card overflow-hidden rounded-3xl p-0">
-          <div className="aspect-[3/2] overflow-hidden rounded-t-3xl bg-cream-200 sm:aspect-[16/9]">
-            {showImage ? (
-              <img
-                src={recipe.image}
-                alt=""
-                className="h-full w-full object-cover"
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-cream-200 text-5xl sm:text-6xl">
-                🍽️
-              </div>
-            )}
-          </div>
           <div className="p-6 sm:p-8 lg:p-10">
-            <h1 className="text-2xl font-bold leading-tight text-ink sm:text-3xl lg:text-4xl">
-              {recipe.title}
-            </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {recipe.cuisine && <Badge variant="sage">{recipe.cuisine}</Badge>}
-              {recipe.diet && <Badge variant="sage">{recipe.diet}</Badge>}
-              {recipe.course && <Badge variant="sage">{recipe.course}</Badge>}
-              {(recipe.tags || []).slice(0, 3).map((tag) => (
-                <Badge key={tag} variant="sage">{tag}</Badge>
-              ))}
-              {recipe.prepTime && (
-                <span className="text-sm text-ink-muted">Prep {recipe.prepTime} min</span>
-              )}
-              {recipe.cookTime && (
-                <span className="text-sm text-ink-muted">Cook {recipe.cookTime} min</span>
-              )}
-              {recipe.rating ? (
-                <span className="text-sm text-ink-muted">
-                  ★ {recipe.rating.toFixed(1)}{recipe.voteCount ? ` (${recipe.voteCount})` : ''}
-                </span>
-              ) : null}
+            <div className="flex items-start gap-4 sm:gap-5">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-cream-200 sm:h-20 sm:w-20">
+                {showImage ? (
+                  <img
+                    src={recipe.image}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-cream-200 text-2xl sm:text-3xl">
+                    🍽️
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-bold leading-tight text-ink sm:text-3xl lg:text-4xl">
+                  {recipe.title}
+                </h1>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {recipe.prepTime ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-sm font-medium text-ink-muted">
+                      <span aria-hidden>🕒</span>
+                      <span>
+                        <span className="font-semibold text-ink">Prep</span> {recipe.prepTime} min
+                      </span>
+                    </span>
+                  ) : null}
+                  {recipe.cookTime ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-sm font-medium text-ink-muted">
+                      <span aria-hidden>🔥</span>
+                      <span>
+                        <span className="font-semibold text-ink">Cook</span> {recipe.cookTime} min
+                      </span>
+                    </span>
+                  ) : null}
+                  {recipe.totalTime ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-sm font-medium text-ink-muted">
+                      <span aria-hidden>⏱️</span>
+                      <span>
+                        <span className="font-semibold text-ink">Total</span> {recipe.totalTime} min
+                      </span>
+                    </span>
+                  ) : null}
+                  {recipe.rating ? (
+                    <span className="inline-flex items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-sm font-medium text-ink-muted">
+                      <span aria-hidden className="tracking-tight text-amber-500">{ratingStars}</span>
+                      <span>
+                        <span className="font-semibold text-ink">Rating</span> {ratingValue.toFixed(1)}/5
+                        {recipe.voteCount ? ` · ${recipe.voteCount} ratings` : ''}
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
             </div>
-
             {/* Ingredients */}
             {ingredients.length > 0 && (
               <>
