@@ -137,3 +137,11 @@ export async function deleteFridgeItem(token, id) {
 export async function consumeRecipe(token, recipeId) {
   return request('/fridge/consume', { method: 'POST', body: { recipe_id: recipeId }, token })
 }
+
+export async function getAnalyticsState(token) {
+  return request('/analytics/me', { token })
+}
+
+export async function saveAnalyticsState(token, analytics) {
+  return request('/analytics/me', { method: 'PUT', body: analytics || {}, token })
+}

@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from .routes.analytics import router as analytics_router
 from .routes.auth import router as auth_router
 from .routes.fridge import router as fridge_router
 from .routes.preferences import router as preferences_router
@@ -36,6 +37,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(analytics_router)
 app.include_router(fridge_router)
 app.include_router(preferences_router)
 app.include_router(recipes_router)

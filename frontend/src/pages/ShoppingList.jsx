@@ -6,6 +6,7 @@ import { useShopping } from '../context/ShoppingContext'
 import { useFridge } from '../context/FridgeContext'
 import { useAuth } from '../context/AuthContext'
 import { getIngredients } from '../api/client'
+import { recordWasteRescued } from '../utils/engagementAnalytics'
 
 export default function ShoppingList() {
   const {
@@ -71,6 +72,7 @@ export default function ShoppingList() {
     if (!item.checked) {
       await addItem({ name: item.name, count, daysLeft: 7, category: fridgeCategory })
       toggle(catName, item.id)
+      await recordWasteRescued(auth.token, { count, source: 'shopping_toggle' })
       return
     }
 

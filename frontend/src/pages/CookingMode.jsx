@@ -6,6 +6,7 @@ import { consumeRecipe, getRecipe } from '../api/client'
 import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
 import { useFridge } from '../context/FridgeContext'
+import { recordRecipeCooked } from '../utils/engagementAnalytics'
 
 export default function CookingMode() {
   const auth = useAuth()
@@ -101,6 +102,12 @@ export default function CookingMode() {
                 try {
                   const res = await consumeRecipe(auth.token, recipeId)
                   const missing = res.missing || []
+                  await recordRecipeCooked(auth.token, {
+                    recipeId,
+                    recipeTitle: recipe?.title,
+                    totalTime: recipe?.totalTime,
+                    missingCount: missing.length,
+                  })
                   setMissingItems(missing)
                   await refresh()
                   if (missing.length === 0) {
