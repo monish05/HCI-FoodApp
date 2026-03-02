@@ -4,7 +4,7 @@ import SectionHeader from '../components/SectionHeader'
 import RecipeCard from '../components/RecipeCard'
 import { useFridge } from '../context/FridgeContext'
 import { scoreRecipe } from '../utils/recipeFridge'
-import { getRecipes, createRecipe, deleteRecipe } from '../api/client'
+import { getRecipes, createRecipe } from '../api/client'
 import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
 import { useSearchParams } from 'react-router-dom'
@@ -138,12 +138,6 @@ export default function RecipeLibrary() {
     stepsText: '',
   })
 
-  const isCustomRecipe = (recipe) => {
-    if (!recipe) return false
-    if (recipe.source === 'user') return true
-    return typeof recipe.id === 'string' && /^[a-f0-9]{24}$/i.test(recipe.id)
-  }
-
   useEffect(() => {
     if (!addOpen) return
     const onEscape = (event) => {
@@ -182,58 +176,44 @@ export default function RecipeLibrary() {
       .filter(Boolean)
 
   const handleCreateRecipe = async (e) => {
-    e.preventDefault()
+  e.preventDefault()
 
-    const title = (newRecipe.title || '').trim()
-    const ingredients = parseLines(newRecipe.ingredientsText)
-    const steps = parseLines(newRecipe.stepsText)
-    const prepTime = Number(newRecipe.prepTime || 0) || undefined
-    const cookTime = Number(newRecipe.cookTime || 0) || undefined
-    const totalTime = (prepTime || 0) + (cookTime || 0) || undefined
+  const title = (newRecipe.title || '').trim()
+  const ingredients = parseLines(newRecipe.ingredientsText)
+  const steps = parseLines(newRecipe.stepsText)
+  const prepTime = Number(newRecipe.prepTime || 0) || undefined
+  const cookTime = Number(newRecipe.cookTime || 0) || undefined
+  const totalTime = (prepTime || 0) + (cookTime || 0) || undefined
 
-    if (!title) return
-    if (ingredients.length === 0) return
-    if (steps.length === 0) return
+  if (!title) return
+  if (ingredients.length === 0) return
+  if (steps.length === 0) return
 
-    const payload = {
-      title,
-      course: newRecipe.course || 'Dinner',
-      prep_time: prepTime,
-      cook_time: cookTime,
-      total_time: totalTime,
-      image: (newRecipe.image || '').trim() || null,
-      url: (newRecipe.url || '').trim() || null,
-      ingredients,
-      steps,
-    }
-
-    try {
-      const data = await createRecipe(auth.token, payload)
-      const raw = data.recipe || data
-      const createdRecipe = adaptRecipe(raw)
-
-      setRecipes((prev) => [createdRecipe, ...prev])
-      setAddOpen(false)
-      resetNewRecipe()
-    } catch (err) {
-      setError(err.message || 'Unable to create recipe')
-    }
+  const payload = {
+    title,
+    course: newRecipe.course || 'Dinner',
+    prep_time: prepTime,
+    cook_time: cookTime,
+    total_time: totalTime,
+    image: (newRecipe.image || '').trim() || null,
+    url: (newRecipe.url || '').trim() || null,
+    ingredients,
+    steps,
   }
 
-  const handleDeleteRecipe = async (recipe) => {
-    if (!recipe?.id) return
-    if (!isCustomRecipe(recipe)) return
+  try {
+    const data = await createRecipe(auth.token, payload)
 
-    const ok = window.confirm(`Delete "${recipe.title}"? This cannot be undone.`)
-    if (!ok) return
+    const raw = data.recipe || data
+    const createdRecipe = adaptRecipe(raw)
 
-    try {
-      await deleteRecipe(auth.token, recipe.id)
-      setRecipes((prev) => prev.filter((r) => r.id !== recipe.id))
-    } catch (err) {
-      setError(err.message || 'Unable to delete recipe')
-    }
+    setRecipes((prev) => [createdRecipe, ...prev])
+    setAddOpen(false)
+    resetNewRecipe()
+  } catch (err) {
+    setError(err.message || 'Unable to create recipe')
   }
+}
 
   useEffect(() => {
     setSearch(querySearch)
@@ -309,9 +289,9 @@ export default function RecipeLibrary() {
           >
             <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
             <div
-              ref={addModalRef}
-              className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-soft max-h-[85vh] flex flex-col"
-            >
+  ref={addModalRef}
+  className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-soft max-h-[85vh] flex flex-col"
+>
               <div className="flex items-start justify-between gap-4 border-b border-cream-200 p-6 sticky top-0 bg-white z-10">
                 <div>
                   <h2 className="text-xl font-bold text-ink">Add a recipe</h2>
@@ -322,17 +302,17 @@ export default function RecipeLibrary() {
                 <button
                   type="button"
                   onClick={() => {
-                    setAddOpen(false)
-                    resetNewRecipe()
-                  }}
-                  aria-label="Close"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-cream-200 bg-white text-lg font-semibold text-ink-muted transition hover:bg-cream-100 hover:text-ink"
+                  setAddOpen(false)
+                  resetNewRecipe()
+                }}
+              aria-label="Close"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-cream-200 bg-white text-lg font-semibold text-ink-muted transition hover:bg-cream-100 hover:text-ink"
                 >
-                  ✕
-                </button>
+                ✕
+              </button>
               </div>
 
-              <form onSubmit={handleCreateRecipe} className="p-6 overflow-y-auto">
+             <form onSubmit={handleCreateRecipe} className="p-6 overflow-y-auto">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <label htmlFor="new-title" className="mb-2 block text-sm font-medium text-ink-muted">
@@ -469,6 +449,9 @@ export default function RecipeLibrary() {
                     Save recipe
                   </button>
                 </div>
+
+                <p className="mt-3 text-xs text-ink-muted">
+                </p>
               </form>
             </div>
           </div>
@@ -571,25 +554,13 @@ export default function RecipeLibrary() {
                   ? `You have ${matchCount}/${total} ingredients`
                   : `Needs ${total} ingredients`
                 : undefined
-
               return (
-                <div key={recipe.id} className="relative">
+                <div key={recipe.id}>
                   <RecipeCard
                     recipe={recipe}
                     badgeLabel={canMake ? 'You can make this' : undefined}
                     ingredientStatus={ingredientStatus}
                   />
-
-                  {isCustomRecipe(recipe) ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRecipe(recipe)}
-                      className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-soft hover:bg-white"
-                      title="Delete recipe"
-                    >
-                      🗑️ Delete
-                    </button>
-                  ) : null}
                 </div>
               )
             })}
