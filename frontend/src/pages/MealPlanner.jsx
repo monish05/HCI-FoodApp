@@ -561,7 +561,7 @@ export default function MealPlanner() {
                     title={slot}
                   >
                     {titleizeMealType(slot)}
-                    {/* <button
+                    {/* {<button
                       type="button"
                       onClick={() => removeMealType(slot)}
                       disabled={isReadOnlyWeek}
@@ -570,12 +570,12 @@ export default function MealPlanner() {
                       title={isReadOnlyWeek ? 'Archived weeks are read-only' : `Remove ${slot}`}
                     >
                       −
-                    </button> */}
+                    </button> } */}
                   </span>
                 ))}
               </div>
 
-              {/* <button
+              {/* {<button
                 type="button"
                 onClick={openAddTab}
                 disabled={isReadOnlyWeek}
@@ -583,7 +583,7 @@ export default function MealPlanner() {
                 title={isReadOnlyWeek ? 'Archived weeks are read-only' : 'Add tab'}
               >
                 + Add tab
-              </button> */}
+              </button> } */}
             </div>
           </div>
         </div>
