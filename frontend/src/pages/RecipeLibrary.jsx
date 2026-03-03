@@ -4,7 +4,7 @@ import SectionHeader from '../components/SectionHeader'
 import RecipeCard from '../components/RecipeCard'
 import { useFridge } from '../context/FridgeContext'
 import { scoreRecipe } from '../utils/recipeFridge'
-import { getRecipes, createRecipe, deleteRecipe } from '../api/client'
+import { getRecipes } from '../api/client'
 import { adaptRecipe } from '../utils/recipeAdapter'
 import { useAuth } from '../context/AuthContext'
 import { useSearchParams } from 'react-router-dom'
@@ -31,6 +31,10 @@ const MAX_TIME_OPTIONS = [
   { value: '45', label: 'Under 45 min' },
   { value: '60', label: 'Under 60 min' },
 ]
+
+function normalizeSearchTerm(value) {
+  return (value || '').replace(/\s+/g, ' ').trim()
+}
 
 function StyledDropdown({ id, label, value, options, onChange }) {
   const [open, setOpen] = useState(false)
@@ -125,111 +129,6 @@ export default function RecipeLibrary() {
   const [sortBy, setSortBy] = useState(querySort)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
-  const [addOpen, setAddOpen] = useState(false)
-  const addModalRef = useRef(null)
-  const [newRecipe, setNewRecipe] = useState({
-    title: '',
-    course: 'Dinner',
-    prepTime: '',
-    cookTime: '',
-    image: '',
-    url: '',
-    ingredientsText: '',
-    stepsText: '',
-  })
-
-  const isCustomRecipe = (recipe) => recipe?.source === 'user'
-
-  useEffect(() => {
-    if (!addOpen) return
-    const onEscape = (event) => {
-      if (event.key === 'Escape') setAddOpen(false)
-    }
-    document.addEventListener('keydown', onEscape)
-    return () => document.removeEventListener('keydown', onEscape)
-  }, [addOpen])
-
-  useEffect(() => {
-    if (!addOpen) return
-    const id = window.setTimeout(() => {
-      const el = addModalRef.current?.querySelector('input, textarea, button, select')
-      el?.focus?.()
-    }, 0)
-    return () => window.clearTimeout(id)
-  }, [addOpen])
-
-  const resetNewRecipe = () => {
-    setNewRecipe({
-      title: '',
-      course: 'Dinner',
-      prepTime: '',
-      cookTime: '',
-      image: '',
-      url: '',
-      ingredientsText: '',
-      stepsText: '',
-    })
-  }
-
-  const parseLines = (text) =>
-    (text || '')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-
-  const handleCreateRecipe = async (e) => {
-    e.preventDefault()
-
-    const title = (newRecipe.title || '').trim()
-    const ingredients = parseLines(newRecipe.ingredientsText)
-    const steps = parseLines(newRecipe.stepsText)
-    const prepTime = Number(newRecipe.prepTime || 0) || undefined
-    const cookTime = Number(newRecipe.cookTime || 0) || undefined
-    const totalTime = (prepTime || 0) + (cookTime || 0) || undefined
-
-    if (!title) return
-    if (ingredients.length === 0) return
-    if (steps.length === 0) return
-
-    const payload = {
-      title,
-      course: newRecipe.course || 'Dinner',
-      prep_time: prepTime,
-      cook_time: cookTime,
-      total_time: totalTime,
-      image: (newRecipe.image || '').trim() || null,
-      url: (newRecipe.url || '').trim() || null,
-      ingredients,
-      steps,
-    }
-
-    try {
-      const data = await createRecipe(auth.token, payload)
-      const raw = data.recipe || data
-      const createdRecipe = { ...adaptRecipe(raw), source: raw?.source || 'user' }
-      setRecipes((prev) => [createdRecipe, ...prev])
-      setAddOpen(false)
-      resetNewRecipe()
-    } catch (err) {
-      setError(err.message || 'Unable to create recipe')
-    }
-  }
-
-  const handleDeleteRecipe = async (recipe) => {
-    if (!recipe?.id) return
-    if (!isCustomRecipe(recipe)) return
-
-    const ok = window.confirm(`Delete "${recipe.title}"? This cannot be undone.`)
-    if (!ok) return
-
-    try {
-      await deleteRecipe(auth.token, recipe.id)
-      setRecipes((prev) => prev.filter((r) => r.id !== recipe.id))
-    } catch (err) {
-      setError(err.message || 'Unable to delete recipe')
-    }
-  }
-
   useEffect(() => {
     setSearch(querySearch)
     setCourse(queryCourse)
@@ -239,7 +138,8 @@ export default function RecipeLibrary() {
 
   useEffect(() => {
     const next = {}
-    if (search.trim()) next.q = search.trim()
+    const normalizedSearch = normalizeSearchTerm(search)
+    if (normalizedSearch) next.q = normalizedSearch
     if (course !== 'All') next.course = course
     if (maxTime !== 'Any') next.maxTime = maxTime
     if (sortBy !== 'relevance') next.sort = sortBy
@@ -252,19 +152,17 @@ export default function RecipeLibrary() {
     async function loadRecipes() {
       setLoading(true)
       try {
+        const normalizedSearch = normalizeSearchTerm(search)
         const params = {
           limit: 50,
-          q: search.trim() || undefined,
+          q: normalizedSearch || undefined,
           course: course === 'All' ? undefined : course,
           max_time: maxTime === 'Any' ? undefined : Number(maxTime),
           sort: sortBy,
         }
         const data = await getRecipes(auth.token, params)
         if (!isMounted) return
-        const adapted = (data.recipes || []).map((r) => {
-          const ar = adaptRecipe(r)
-          return { ...ar, source: r?.source ?? ar?.source }
-        })
+        const adapted = (data.recipes || []).map(adaptRecipe)
         setRecipes(adapted)
       } catch (err) {
         if (!isMounted) return
@@ -274,196 +172,16 @@ export default function RecipeLibrary() {
       }
     }
     loadRecipes()
-    return () => {
-      isMounted = false
-    }
+    return () => { isMounted = false }
   }, [auth.token, search, course, maxTime, sortBy])
 
   return (
     <PageContainer>
       <div className="page-content">
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-          <SectionHeader title="Recipe library" subtitle="Search and filter recipes" />
-          <button
-            type="button"
-            onClick={() => setAddOpen(true)}
-            className="btn-primary inline-flex items-center gap-2 self-start"
-          >
-            <span className="text-lg leading-none">＋</span>
-            Add recipe
-          </button>
-        </div>
-
-        {addOpen ? (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            role="dialog"
-            aria-modal="true"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setAddOpen(false)
-            }}
-          >
-            <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
-            <div
-              ref={addModalRef}
-              className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-soft max-h-[85vh] flex flex-col"
-            >
-              <div className="flex items-start justify-between gap-4 border-b border-cream-200 p-6 sticky top-0 bg-white z-10">
-                <div>
-                  <h2 className="text-xl font-bold text-ink">Add a recipe</h2>
-                  <p className="mt-1 text-sm text-ink-muted">Title, ingredients, and steps are required.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAddOpen(false)
-                    resetNewRecipe()
-                  }}
-                  aria-label="Close"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-cream-200 bg-white text-lg font-semibold text-ink-muted transition hover:bg-cream-100 hover:text-ink"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateRecipe} className="p-6 overflow-y-auto">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-title" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Title <span className="text-tomato-dark">*</span>
-                    </label>
-                    <input
-                      id="new-title"
-                      type="text"
-                      value={newRecipe.title}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, title: e.target.value }))}
-                      placeholder="e.g., Lemon Garlic Pasta"
-                      className="input w-full"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <StyledDropdown
-                      id="new-course"
-                      label="Meal type"
-                      value={newRecipe.course}
-                      onChange={(value) => setNewRecipe((prev) => ({ ...prev, course: value }))}
-                      options={COURSE_OPTIONS.filter((o) => o.value !== 'All')}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="new-prep" className="mb-2 block text-sm font-medium text-ink-muted">
-                        Prep (min)
-                      </label>
-                      <input
-                        id="new-prep"
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        value={newRecipe.prepTime}
-                        onChange={(e) => setNewRecipe((prev) => ({ ...prev, prepTime: e.target.value }))}
-                        placeholder="10"
-                        className="input w-full"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="new-cook" className="mb-2 block text-sm font-medium text-ink-muted">
-                        Cook (min)
-                      </label>
-                      <input
-                        id="new-cook"
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        value={newRecipe.cookTime}
-                        onChange={(e) => setNewRecipe((prev) => ({ ...prev, cookTime: e.target.value }))}
-                        placeholder="20"
-                        className="input w-full"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-image" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Image URL (optional)
-                    </label>
-                    <input
-                      id="new-image"
-                      type="url"
-                      value={newRecipe.image}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, image: e.target.value }))}
-                      placeholder="https://..."
-                      className="input w-full"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-url" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Original recipe link (optional)
-                    </label>
-                    <input
-                      id="new-url"
-                      type="url"
-                      value={newRecipe.url}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, url: e.target.value }))}
-                      placeholder="https://..."
-                      className="input w-full"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-ingredients" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Ingredients (one per line) <span className="text-tomato-dark">*</span>
-                    </label>
-                    <textarea
-                      id="new-ingredients"
-                      rows={5}
-                      value={newRecipe.ingredientsText}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, ingredientsText: e.target.value }))}
-                      placeholder={`e.g.\nSpaghetti\nGarlic\nOlive oil\nLemon`}
-                      className="input w-full"
-                      required
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="new-steps" className="mb-2 block text-sm font-medium text-ink-muted">
-                      Steps (one per line) <span className="text-tomato-dark">*</span>
-                    </label>
-                    <textarea
-                      id="new-steps"
-                      rows={6}
-                      value={newRecipe.stepsText}
-                      onChange={(e) => setNewRecipe((prev) => ({ ...prev, stepsText: e.target.value }))}
-                      placeholder={`e.g.\nBoil pasta.\nSauté garlic in oil.\nToss with lemon and pasta.`}
-                      className="input w-full"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sticky bottom-0 bg-white pt-4 border-t border-cream-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddOpen(false)
-                      resetNewRecipe()
-                    }}
-                    className="btn-secondary w-full sm:w-auto"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary w-full sm:w-auto">
-                    Save recipe
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        ) : null}
+        <SectionHeader
+          title="Recipe library"
+          subtitle="Search and filter recipes"
+        />
 
         {search.trim() && source === 'use-up-soon' ? (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-tomato/20 bg-tomato/5 px-4 py-3 text-sm">
@@ -487,8 +205,7 @@ export default function RecipeLibrary() {
           </div>
         ) : null}
 
-        {/* ✅ THIS is the actual fix for the big gap */}
-        <div className="card -mt-6 mb-6 rounded-3xl p-6 sm:-mt-6 sm:p-8">
+        <div className="card mb-8 rounded-3xl p-6 sm:p-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2">
               <label htmlFor="recipe-search" className="mb-2 block text-sm font-medium text-ink-muted">
@@ -504,10 +221,20 @@ export default function RecipeLibrary() {
               />
             </div>
             <div>
-              <StyledDropdown id="sortBy" label="Sort by" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
+              <StyledDropdown
+                id="sortBy"
+                label="Sort by"
+                value={sortBy}
+                onChange={setSortBy}
+                options={SORT_OPTIONS}
+              />
             </div>
             <div className="flex items-end">
-              <button type="button" onClick={() => setFiltersOpen((prev) => !prev)} className="btn-secondary w-full">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((prev) => !prev)}
+                className="btn-secondary w-full"
+              >
                 {filtersOpen ? 'Hide filters' : 'Filters'}
               </button>
             </div>
@@ -515,7 +242,13 @@ export default function RecipeLibrary() {
           {filtersOpen && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <StyledDropdown id="course" label="Meal type" value={course} onChange={setCourse} options={COURSE_OPTIONS} />
+                <StyledDropdown
+                  id="course"
+                  label="Meal type"
+                  value={course}
+                  onChange={setCourse}
+                  options={COURSE_OPTIONS}
+                />
               </div>
               <div>
                 <StyledDropdown
@@ -542,56 +275,28 @@ export default function RecipeLibrary() {
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
             {recipes.map((recipe) => {
               const { canMake, matchCount, total } = scoreRecipe(recipe, fridgeItems)
-              const ingredientStatus =
-                !canMake && total > 0
-                  ? matchCount > 0
-                    ? `You have ${matchCount}/${total} ingredients`
-                    : `Needs ${total} ingredients`
-                  : undefined
-
+              const ingredientStatus = !canMake && total > 0
+                ? matchCount > 0
+                  ? `You have ${matchCount}/${total} ingredients`
+                  : `Needs ${total} ingredients`
+                : undefined
               return (
-                <div key={recipe.id} className="relative">
-  <RecipeCard
-    recipe={recipe}
-    badgeLabel={canMake ? 'You can make this' : undefined}
-    ingredientStatus={ingredientStatus}
-  />
-
-  {isCustomRecipe(recipe) && (
-    <button
-      type="button"
-      onClick={() => handleDeleteRecipe(recipe)}
-      title="Delete recipe"
-      className="absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-soft transition hover:bg-rose-100 hover:text-rose-700"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="h-5 w-5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <polyline points="3 6 5 6 21 6" />
-        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-        <path d="M10 11v6" />
-        <path d="M14 11v6" />
-        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-      </svg>
-    </button>
-  )}
-</div>
+                <div key={recipe.id}>
+                  <RecipeCard
+                    recipe={recipe}
+                    badgeLabel={canMake ? 'You can make this' : undefined}
+                    ingredientStatus={ingredientStatus}
+                  />
+                </div>
               )
             })}
           </div>
         ) : (
           <div className="card rounded-3xl p-12 text-center sm:p-16">
-            <p className="text-5xl sm:text-6xl" aria-hidden>
-              🔍
+            <p className="text-5xl sm:text-6xl" aria-hidden>🔍</p>
+            <p className="mt-6 text-base text-ink-muted leading-relaxed">
+              No recipes match your preferences yet.
             </p>
-            <p className="mt-6 text-base text-ink-muted leading-relaxed">No recipes match your preferences yet.</p>
           </div>
         )}
       </div>

@@ -16,6 +16,13 @@ const FILTERS = [
   { value: 30, label: 'Under 30 min' },
 ]
 
+function sanitizeSearchIngredient(name) {
+  return (name || '')
+    .replace(/\s*[([{][^\])}]*[\])}]\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export default function Home() {
   const auth = useAuth()
   const { items: fridgeItems } = useFridge()
@@ -130,17 +137,20 @@ export default function Home() {
           <section className="mb-6">
             <h2 className="text-sm font-semibold text-ink-muted mb-2">Use up soon</h2>
             <div className="flex flex-wrap gap-2">
-              {useUpSoonItems.slice(0, 3).map((item) => (
-                <Link
-                  key={item.id}
-                  to={`/recipes?q=${encodeURIComponent(item.name)}&source=use-up-soon`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-tomato/10 px-3 py-1.5 text-xs font-semibold text-tomato-dark transition hover:bg-tomato/20"
-                >
-                  <span>{item.name}</span>
-                  <span className="opacity-70">· {item.daysLeft}d</span>
-                  <span className="opacity-80">→ Find recipes</span>
-                </Link>
-              ))}
+              {useUpSoonItems.slice(0, 3).map((item) => {
+                const searchTerm = sanitizeSearchIngredient(item.name)
+                return (
+                  <Link
+                    key={item.id}
+                    to={`/recipes?q=${encodeURIComponent(searchTerm || item.name)}&source=use-up-soon`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-tomato/10 px-3 py-1.5 text-xs font-semibold text-tomato-dark transition hover:bg-tomato/20"
+                  >
+                    <span>{item.name}</span>
+                    <span className="opacity-70">· {item.daysLeft}d</span>
+                    <span className="opacity-80">→ Find recipes</span>
+                  </Link>
+                )
+              })}
             </div>
           </section>
         )}

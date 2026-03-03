@@ -120,6 +120,10 @@ def _normalize_text(value: str) -> str:
     return re.sub(r"[^a-z]+", " ", (value or "").lower()).strip()
 
 
+def _normalize_search_query(value: str) -> str:
+    return re.sub(r"\s+", " ", (value or "")).strip()
+
+
 def _image_from_doc(doc: dict) -> Optional[str]:
     return (
         (doc.get("image_url") or "").strip()
@@ -142,20 +146,16 @@ def _ingredient_matches(ingredient: str, fridge_names: List[str]) -> bool:
     return False
 
 
-def _expiry_score(ingredients: List[str], fridge_items: List[dict]) -> int:
+def _expiry_score(ingredients: List[str], fridge_index: List[tuple]) -> int:
     score = 0
-    if not ingredients or not fridge_items:
+    if not ingredients or not fridge_index:
         return score
     for ing in ingredients:
         ing_norm = _normalize_text(ing)
         if not ing_norm:
             continue
-        for item in fridge_items:
-            name_norm = _normalize_text(item.get("name", ""))
-            if not name_norm:
-                continue
+        for name_norm, days_left in fridge_index:
             if name_norm in ing_norm or ing_norm in name_norm:
-                days_left = int(item.get("days_left", 0) or 0)
                 score += max(0, 7 - days_left)
                 break
     return score
@@ -186,6 +186,11 @@ async def list_recipes(
     prefs = await db.preferences.find_one({"user_id": user["_id"]}) or {}
     fridge_items = await db.fridge_items.find({"user_id": user["_id"]}).to_list(length=None)
     fridge_names = [_normalize_text(item.get("name", "")) for item in fridge_items]
+    fridge_index = [
+        (_normalize_text(item.get("name", "")), int(item.get("days_left", 0) or 0))
+        for item in fridge_items
+        if _normalize_text(item.get("name", ""))
+    ]
 
     cuisines = _normalize_list(prefs.get("cuisines", []))
     diets = _normalize_list(prefs.get("diets", []))
@@ -204,9 +209,9 @@ async def list_recipes(
 
     # search filter
     or_filters = []
-    is_search = bool(q and q.strip())
+    q_value = _normalize_search_query(q or "")
+    is_search = bool(q_value)
     if is_search:
-        q_value = q.strip()
         or_filters.append({"recipe_title": {"$regex": q_value, "$options": "i"}})
         or_filters.append({"tags": {"$regex": q_value, "$options": "i"}})
         or_filters.append({"ingredients": {"$regex": q_value, "$options": "i"}})
@@ -217,8 +222,13 @@ async def list_recipes(
         and_filters.append({"course": {"$regex": f"^{re.escape(course.strip())}$", "$options": "i"}})
 
     query = {"$and": and_filters} if and_filters else {}
+    sort_key = (sort or "relevance").lower()
 
-    cursor = db.food_recipes.find(query).limit(1000)
+    cursor = db.food_recipes.find(query)
+    if not is_search:
+        candidate_limit = max(limit * 8, 400)
+        cursor = cursor.limit(candidate_limit)
+
     results = []
     async for doc in cursor:
         ingredients = _split_ingredients(doc.get("ingredients", ""))
@@ -244,10 +254,13 @@ async def list_recipes(
         else:
             score = 0
 
+        needs_can_make = sort_key in {"relevance", "expiring"}
         can_make = False
-        if ingredients:
+        if needs_can_make and ingredients:
             can_make = all(_ingredient_matches(ing, fridge_names) for ing in ingredients)
-        expiring_score = _expiry_score(ingredients, fridge_items)
+
+        needs_expiring = sort_key == "expiring"
+        expiring_score = _expiry_score(ingredients, fridge_index) if needs_expiring else 0
         is_expiring_soon = expiring_score > 0
 
         results.append(
@@ -263,8 +276,8 @@ async def list_recipes(
                 "cook_time": doc.get("cook_time"),
                 "total_time": cook_minutes,
                 "ingredients": ingredients,
-                "instructions": _split_instructions(doc.get("instructions", "")),
-                "tags": _split_pipe(doc.get("tags", "")),
+                "instructions_raw": doc.get("instructions", ""),
+                "tags_raw": doc.get("tags", ""),
                 "rating": _parse_float(doc.get("rating")),
                 "vote_count": _parse_int(doc.get("vote_count")),
                 "cook_minutes": cook_minutes,
@@ -277,7 +290,6 @@ async def list_recipes(
             }
         )
 
-    sort_key = (sort or "relevance").lower()
     if sort_key == "cook_time":
         results.sort(key=lambda r: (r.get("cook_minutes", 0), -r.get("_score", 0)))
     elif sort_key == "rating":
@@ -305,6 +317,11 @@ async def list_recipes(
 
     trimmed = results[:limit]
     for item in trimmed:
+        item["instructions"] = _split_instructions(item.pop("instructions_raw", ""))
+        item["tags"] = _split_pipe(item.pop("tags_raw", ""))
+        if sort_key != "expiring":
+            item["expiring_score"] = _expiry_score(item.get("ingredients", []), fridge_index)
+            item["is_expiring_soon"] = item["expiring_score"] > 0
         item.pop("_score", None)
         item.pop("cook_minutes", None)
         item.pop("_can_make", None)
