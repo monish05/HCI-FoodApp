@@ -7,6 +7,8 @@ const navItems = [
   { to: '/recipes', label: 'Recipes' },
   { to: '/fridge', label: 'My Fridge' },
   { to: '/shopping', label: 'Shopping' },
+  { to: '/planner', label: 'Planner' },
+  { to: '/analytics', label: 'Analytics' },
 ]
 
 export default function Navbar() {
@@ -22,9 +24,15 @@ export default function Navbar() {
     navigate('/login', { replace: true })
   }
 
-  const inAccountSection = ['/profile', '/analytics', '/planner'].some((path) =>
+  const inAccountSection = ['/profile'].some((path) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`)
   )
+
+  const profileInitial = useMemo(() => {
+    if (auth.userName) return String(auth.userName).slice(0, 1)
+    if (auth.userEmail) return String(auth.userEmail).slice(0, 1)
+    return 'U'
+  }, [auth.userEmail, auth.userName])
 
   const profileLabel = useMemo(() => {
     if (auth.userName) return auth.userName
@@ -101,7 +109,7 @@ export default function Navbar() {
                 aria-expanded={profileOpen}
               >
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-xs font-bold uppercase">
-                  {String(profileLabel || 'U').slice(0, 1)}
+                  {String(profileInitial || 'U').slice(0, 1)}
                 </span>
                 <span>{profileLabel}</span>
                 <svg
@@ -115,43 +123,30 @@ export default function Navbar() {
               </button>
               {profileOpen && (
                 <div
-                  className="absolute right-0 mt-2 w-56 rounded-2xl bg-white p-2 shadow-soft-lg ring-1 ring-ink/5"
+                  className="absolute right-0 mt-2 w-44 rounded-2xl bg-white p-1.5 shadow-soft-lg ring-1 ring-ink/5"
                   role="menu"
                 >
-                  <div className="mb-2 rounded-xl bg-cream-50 px-3 py-2">
-                    <p className="truncate text-sm font-semibold text-ink">{profileLabel}</p>
-                    <p className="truncate text-xs text-ink-muted">{auth.userEmail || 'Account'}</p>
-                  </div>
                   <NavLink
                     to="/profile"
                     onClick={() => setProfileOpen(false)}
-                    className="block rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-cream-100"
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-ink hover:bg-cream-100"
                     role="menuitem"
                   >
+                    <svg className="h-4 w-4 text-ink-muted" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                      <path d="M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 7a7 7 0 1 1 14 0H3Z" />
+                    </svg>
                     Profile
-                  </NavLink>
-                  <NavLink
-                    to="/analytics"
-                    onClick={() => setProfileOpen(false)}
-                    className="block rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-cream-100"
-                    role="menuitem"
-                  >
-                    Analytics
-                  </NavLink>
-                  <NavLink
-                    to="/planner"
-                    onClick={() => setProfileOpen(false)}
-                    className="block rounded-xl px-3 py-2.5 text-sm text-ink hover:bg-cream-100"
-                    role="menuitem"
-                  >
-                    Planner
                   </NavLink>
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="mt-1 block w-full rounded-xl px-3 py-2.5 text-left text-sm text-tomato-dark hover:bg-cream-100"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-tomato-dark hover:bg-cream-100"
                     role="menuitem"
                   >
+                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                      <path d="M3 4.75A1.75 1.75 0 0 1 4.75 3h5.5a.75.75 0 0 1 0 1.5h-5.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h5.5a.75.75 0 0 1 0 1.5h-5.5A1.75 1.75 0 0 1 3 15.25V4.75Z" />
+                      <path d="M11.78 6.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06l1.97-1.97H7.75a.75.75 0 0 1 0-1.5h6l-1.97-1.97a.75.75 0 0 1 0-1.06Z" />
+                    </svg>
                     Log out
                   </button>
                 </div>
@@ -221,32 +216,16 @@ export default function Navbar() {
                 </li>
               )
             })}
-            <li className="mt-4 px-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">Account</li>
             <li>
               <NavLink
                 to="/profile"
                 onClick={closeMenu}
-                className="flex min-h-14 items-center rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
+                className="flex min-h-14 items-center gap-3 rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
               >
+                <svg className="h-5 w-5 text-ink-muted" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                  <path d="M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 7a7 7 0 1 1 14 0H3Z" />
+                </svg>
                 Profile
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/analytics"
-                onClick={closeMenu}
-                className="flex min-h-14 items-center rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
-              >
-                Analytics
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/planner"
-                onClick={closeMenu}
-                className="flex min-h-14 items-center rounded-2xl px-4 text-base font-medium text-ink transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100"
-              >
-                Planner
               </NavLink>
             </li>
             <li>
@@ -256,8 +235,12 @@ export default function Navbar() {
                   closeMenu()
                   handleLogout()
                 }}
-                className="flex min-h-14 w-full items-center rounded-2xl px-4 text-base font-medium text-ink-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100 hover:text-ink"
+                className="flex min-h-14 w-full items-center gap-3 rounded-2xl px-4 text-base font-medium text-ink-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 hover:bg-cream-100 hover:text-ink"
               >
+                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                  <path d="M3 4.75A1.75 1.75 0 0 1 4.75 3h5.5a.75.75 0 0 1 0 1.5h-5.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h5.5a.75.75 0 0 1 0 1.5h-5.5A1.75 1.75 0 0 1 3 15.25V4.75Z" />
+                  <path d="M11.78 6.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06l1.97-1.97H7.75a.75.75 0 0 1 0-1.5h6l-1.97-1.97a.75.75 0 0 1 0-1.06Z" />
+                </svg>
                 Log out
               </button>
             </li>
