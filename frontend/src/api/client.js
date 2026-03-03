@@ -37,15 +37,23 @@ async function request(path, { method = 'GET', body, token } = {}) {
   const headers = { 'Content-Type': 'application/json' }
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  let res
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch (error) {
+    throw new Error(`Cannot reach API at ${API_BASE || 'current origin'}. Make sure backend is running.`)
+  }
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({}))
     let message = error.detail || 'Request failed'
+    if (res.status === 404 && path.startsWith('/auth/')) {
+      message = `Auth endpoint not found at ${API_BASE || 'current origin'}. Check VITE_API_URL.`
+    }
     if (Array.isArray(message)) {
       message = message
         .map((item) => item.msg || item.message || JSON.stringify(item))
