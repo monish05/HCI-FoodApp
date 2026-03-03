@@ -206,10 +206,7 @@ export default function RecipeLibrary() {
     try {
       const data = await createRecipe(auth.token, payload)
       const raw = data.recipe || data
-
-      // Ensure 'source' is present even if adapter drops it
       const createdRecipe = { ...adaptRecipe(raw), source: raw?.source || 'user' }
-
       setRecipes((prev) => [createdRecipe, ...prev])
       setAddOpen(false)
       resetNewRecipe()
@@ -277,22 +274,20 @@ export default function RecipeLibrary() {
       }
     }
     loadRecipes()
-    return () => { isMounted = false }
+    return () => {
+      isMounted = false
+    }
   }, [auth.token, search, course, maxTime, sortBy])
 
   return (
     <PageContainer>
       <div className="page-content">
-        <SectionHeader
-          title="Recipe library"
-          subtitle="Search and filter recipes"
-        />
-
-        <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <SectionHeader title="Recipe library" subtitle="Search and filter recipes" />
           <button
             type="button"
             onClick={() => setAddOpen(true)}
-            className="btn-primary inline-flex items-center gap-2"
+            className="btn-primary inline-flex items-center gap-2 self-start"
           >
             <span className="text-lg leading-none">＋</span>
             Add recipe
@@ -316,9 +311,7 @@ export default function RecipeLibrary() {
               <div className="flex items-start justify-between gap-4 border-b border-cream-200 p-6 sticky top-0 bg-white z-10">
                 <div>
                   <h2 className="text-xl font-bold text-ink">Add a recipe</h2>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    Title, ingredients, and steps are required.
-                  </p>
+                  <p className="mt-1 text-sm text-ink-muted">Title, ingredients, and steps are required.</p>
                 </div>
                 <button
                   type="button"
@@ -463,10 +456,7 @@ export default function RecipeLibrary() {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="btn-primary w-full sm:w-auto"
-                  >
+                  <button type="submit" className="btn-primary w-full sm:w-auto">
                     Save recipe
                   </button>
                 </div>
@@ -497,7 +487,8 @@ export default function RecipeLibrary() {
           </div>
         ) : null}
 
-        <div className="card mb-8 rounded-3xl p-6 sm:p-8">
+        {/* ✅ THIS is the actual fix for the big gap */}
+        <div className="card -mt-6 mb-6 rounded-3xl p-6 sm:-mt-6 sm:p-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="sm:col-span-2">
               <label htmlFor="recipe-search" className="mb-2 block text-sm font-medium text-ink-muted">
@@ -513,20 +504,10 @@ export default function RecipeLibrary() {
               />
             </div>
             <div>
-              <StyledDropdown
-                id="sortBy"
-                label="Sort by"
-                value={sortBy}
-                onChange={setSortBy}
-                options={SORT_OPTIONS}
-              />
+              <StyledDropdown id="sortBy" label="Sort by" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
             </div>
             <div className="flex items-end">
-              <button
-                type="button"
-                onClick={() => setFiltersOpen((prev) => !prev)}
-                className="btn-secondary w-full"
-              >
+              <button type="button" onClick={() => setFiltersOpen((prev) => !prev)} className="btn-secondary w-full">
                 {filtersOpen ? 'Hide filters' : 'Filters'}
               </button>
             </div>
@@ -534,13 +515,7 @@ export default function RecipeLibrary() {
           {filtersOpen && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <StyledDropdown
-                  id="course"
-                  label="Meal type"
-                  value={course}
-                  onChange={setCourse}
-                  options={COURSE_OPTIONS}
-                />
+                <StyledDropdown id="course" label="Meal type" value={course} onChange={setCourse} options={COURSE_OPTIONS} />
               </div>
               <div>
                 <StyledDropdown
@@ -567,40 +542,56 @@ export default function RecipeLibrary() {
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
             {recipes.map((recipe) => {
               const { canMake, matchCount, total } = scoreRecipe(recipe, fridgeItems)
-              const ingredientStatus = !canMake && total > 0
-                ? matchCount > 0
-                  ? `You have ${matchCount}/${total} ingredients`
-                  : `Needs ${total} ingredients`
-                : undefined
+              const ingredientStatus =
+                !canMake && total > 0
+                  ? matchCount > 0
+                    ? `You have ${matchCount}/${total} ingredients`
+                    : `Needs ${total} ingredients`
+                  : undefined
 
               return (
                 <div key={recipe.id} className="relative">
-                  <RecipeCard
-                    recipe={recipe}
-                    badgeLabel={canMake ? 'You can make this' : undefined}
-                    ingredientStatus={ingredientStatus}
-                  />
+  <RecipeCard
+    recipe={recipe}
+    badgeLabel={canMake ? 'You can make this' : undefined}
+    ingredientStatus={ingredientStatus}
+  />
 
-                  {isCustomRecipe(recipe) ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRecipe(recipe)}
-                      className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-soft hover:bg-white"
-                      title="Delete recipe"
-                    >
-                      🗑️ Delete
-                    </button>
-                  ) : null}
-                </div>
+  {isCustomRecipe(recipe) && (
+    <button
+      type="button"
+      onClick={() => handleDeleteRecipe(recipe)}
+      title="Delete recipe"
+      className="absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-soft transition hover:bg-rose-100 hover:text-rose-700"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-5 w-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+        <path d="M10 11v6" />
+        <path d="M14 11v6" />
+        <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+      </svg>
+    </button>
+  )}
+</div>
               )
             })}
           </div>
         ) : (
           <div className="card rounded-3xl p-12 text-center sm:p-16">
-            <p className="text-5xl sm:text-6xl" aria-hidden>🔍</p>
-            <p className="mt-6 text-base text-ink-muted leading-relaxed">
-              No recipes match your preferences yet.
+            <p className="text-5xl sm:text-6xl" aria-hidden>
+              🔍
             </p>
+            <p className="mt-6 text-base text-ink-muted leading-relaxed">No recipes match your preferences yet.</p>
           </div>
         )}
       </div>
