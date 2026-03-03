@@ -450,39 +450,39 @@ export default function MealPlanner() {
     setAddTabOpen(true)
   }
 
-  const removeMealType = async (slot) => {
-    if (isPastWeek) {
-      setLockNotice('Past weeks are archived and cannot be edited.')
-      return
-    }
-    if (mealTypes.length <= 1) {
-      setLockNotice('You must keep at least one meal tab.')
-      return
-    }
+  // const removeMealType = async (slot) => {
+  //   if (isPastWeek) {
+  //     setLockNotice('Past weeks are archived and cannot be edited.')
+  //     return
+  //   }
+  //   if (mealTypes.length <= 1) {
+  //     setLockNotice('You must keep at least one meal tab.')
+  //     return
+  //   }
 
-    const ok = window.confirm(`Remove meal tab "${titleizeMealType(slot)}" for the whole week?`)
-    if (!ok) return
+  //   const ok = window.confirm(`Remove meal tab "${titleizeMealType(slot)}" for the whole week?`)
+  //   if (!ok) return
 
-    const nextSlots = mealTypes.filter((s) => s !== slot)
-    const nextPlan = {
-      ...plan,
-      slots: nextSlots,
-      days: plan.days.map((d) => {
-        const nextMeals = {}
-        nextSlots.forEach((s) => {
-          nextMeals[s] = d.meals && Object.prototype.hasOwnProperty.call(d.meals, s) ? d.meals[s] : null
-        })
-        return { ...d, meals: nextMeals }
-      }),
-    }
+  //   const nextSlots = mealTypes.filter((s) => s !== slot)
+  //   const nextPlan = {
+  //     ...plan,
+  //     slots: nextSlots,
+  //     days: plan.days.map((d) => {
+  //       const nextMeals = {}
+  //       nextSlots.forEach((s) => {
+  //         nextMeals[s] = d.meals && Object.prototype.hasOwnProperty.call(d.meals, s) ? d.meals[s] : null
+  //       })
+  //       return { ...d, meals: nextMeals }
+  //     }),
+  //   }
 
-    await persistPlan(nextPlan)
+  //   await persistPlan(nextPlan)
 
-    if (selectedSlot && selectedSlot.mealType === slot) {
-      setSelectedSlot(null)
-      resetModalFilters()
-    }
-  }
+  //   if (selectedSlot && selectedSlot.mealType === slot) {
+  //     setSelectedSlot(null)
+  //     resetModalFilters()
+  //   }
+  // }
 
   const addMealTypeFromModal = async () => {
     if (isPastWeek) {
@@ -561,7 +561,7 @@ export default function MealPlanner() {
                     title={slot}
                   >
                     {titleizeMealType(slot)}
-                    {<button
+                    {/* {<button
                       type="button"
                       onClick={() => removeMealType(slot)}
                       disabled={isReadOnlyWeek}
@@ -570,7 +570,7 @@ export default function MealPlanner() {
                       title={isReadOnlyWeek ? 'Archived weeks are read-only' : `Remove ${slot}`}
                     >
                       −
-                    </button> }
+                    </button> } */}
                   </span>
                 ))}
               </div>
