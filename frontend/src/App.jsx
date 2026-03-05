@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import { FridgeProvider } from './context/FridgeContext'
 import { ShoppingProvider } from './context/ShoppingContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -136,6 +137,42 @@ function AppLayout() {
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster
+        position="top-center"
+        gutter={16}
+        containerStyle={{ zIndex: 99999, position: 'fixed', top: 24 }}
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#FFFFFF',
+            color: '#1E1E1E',
+            borderRadius: '1.5rem',
+            padding: '16px 20px',
+            boxShadow: '0 4px 24px rgba(30, 30, 30, 0.06)',
+            border: '1px solid #F3F0E8',
+            fontSize: '15px',
+            fontFamily: 'DM Sans, system-ui, sans-serif',
+          },
+          success: {
+            iconTheme: {
+              primary: '#6BAF92',
+              secondary: '#FFFFFF',
+            },
+            style: {
+              borderLeft: '4px solid #6BAF92',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#E4572E',
+              secondary: '#FFFFFF',
+            },
+            style: {
+              borderLeft: '4px solid #E4572E',
+            },
+          },
+        }}
+      />
       <FridgeProvider>
         <ShoppingProvider>
           <AppLayout />

@@ -50,7 +50,7 @@ export default function Survey() {
       const prefs = await savePreferences(auth.token, payload, true)
       auth.setPreferences(prefs)
       auth.setHasPreferences(true)
-      navigate('/recipes', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       setError(err.message || 'Unable to save preferences')
     } finally {

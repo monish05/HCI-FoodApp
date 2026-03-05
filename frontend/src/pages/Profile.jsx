@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import PageContainer from '../components/PageContainer'
 import SectionHeader from '../components/SectionHeader'
 import FilterPill from '../components/FilterPill'
@@ -25,6 +26,15 @@ export default function Profile() {
   )
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (auth.preferences) {
+      setCuisines(auth.preferences.cuisines || [])
+      setDiets(auth.preferences.diets || [])
+      setAvoidInput((auth.preferences.avoid_ingredients || []).join(', '))
+      setMaxCookTime(auth.preferences.max_cook_time ? String(auth.preferences.max_cook_time) : '')
+    }
+  }, [auth.preferences])
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
@@ -80,6 +90,8 @@ export default function Profile() {
       }
       const prefs = await savePreferences(auth.token, payload, false)
       auth.setPreferences(prefs)
+      toast.success('Changes saved successfully.')
+      setTimeout(() => navigate('/', { replace: true }), 100)
     } catch (err) {
       setError(err.message || 'Unable to update preferences')
     } finally {
