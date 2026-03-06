@@ -154,27 +154,26 @@ export default function RecipeDetail() {
           ← Back to library
         </button>
         <div className="card overflow-hidden rounded-3xl p-0">
-          <div className="p-6 sm:p-8 lg:p-10">
-            <div className="flex items-start gap-4 sm:gap-5">
-              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-cream-200 sm:h-20 sm:w-20">
-                {showImage ? (
-                  <img
-                    src={recipe.image}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    onError={() => setImgError(true)}
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-cream-200 text-2xl sm:text-3xl">
-                    🍽️
-                  </div>
-                )}
+          <div className="aspect-video w-full max-h-[300px] overflow-hidden bg-cream-200 sm:max-h-[360px]">
+            {showImage ? (
+              <img
+                src={recipe.image}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-cream-200 text-6xl sm:text-7xl">
+                🍽️
               </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold leading-tight text-ink sm:text-3xl lg:text-4xl">
-                  {recipe.title}
-                </h1>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+            )}
+          </div>
+          <div className="p-6 sm:p-8 lg:p-10">
+            <h1 className="text-2xl font-bold leading-tight text-ink sm:text-3xl lg:text-4xl">
+              {recipe.title}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
                   {recipe.prepTime ? (
                     <span className="inline-flex items-center gap-2 rounded-full bg-cream-100 px-3 py-1 text-sm font-medium text-ink-muted">
                       <span aria-hidden>🕒</span>
@@ -216,8 +215,6 @@ export default function RecipeDetail() {
                     {missing.length > 0 ? ` (${missing.length} missing)` : ''}.
                   </p>
                 ) : null}
-              </div>
-            </div>
             {/* Ingredients */}
             {ingredients.length > 0 && (
               <>

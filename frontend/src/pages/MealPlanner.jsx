@@ -673,7 +673,7 @@ export default function MealPlanner() {
                                     <div className="flex items-center gap-3">
                                       <div className="h-10 w-10 overflow-hidden rounded-lg bg-cream-200">
                                         {meal.image ? (
-                                          <img src={meal.image} alt="" className="h-full w-full object-cover" />
+                                          <img src={meal.image} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                                         ) : (
                                           <div className="flex h-full w-full items-center justify-center">🍽️</div>
                                         )}
@@ -891,7 +891,7 @@ export default function MealPlanner() {
                   >
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-cream-200">
                       {recipe.image ? (
-                        <img src={recipe.image} alt="" className="h-full w-full object-cover" />
+                        <img src={recipe.image} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-xl">🍽️</div>
                       )}

@@ -15,7 +15,7 @@ export function adaptRecipe(apiRecipe) {
     cookTime,
     prepTime,
     totalTime,
-    image: apiRecipe.image || null,
+    image: apiRecipe.image || apiRecipe.image_url || null,
     ingredients: apiRecipe.ingredients || [],
     steps: apiRecipe.instructions || [],
     cuisine: apiRecipe.cuisine,
