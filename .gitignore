@@ -32,3 +32,4 @@ __pycache__/
 .idea
 .DS_Store
 backend/data/food_recipes.csv
+data/food_recipes.csv
