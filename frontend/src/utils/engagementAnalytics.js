@@ -1,23 +1,5 @@
 import { getAnalyticsState, saveAnalyticsState } from '../api/client'
 
-const DEFAULT_STATE = {
-  totalPoints: 0,
-  savingsTotal: 0,
-  wasteItemsRescued: 0,
-  recipesCooked: 0,
-  recipeHistory: [],
-  daily: {},
-  weekly: {},
-  streak: {
-    current: 0,
-    best: 0,
-    lastCookDate: null,
-  },
-  badges: [],
-  claimedQuestIds: [],
-  events: [],
-}
-
 function toDateKey(date = new Date()) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
@@ -30,6 +12,43 @@ function getWeekStartKey(date = new Date()) {
   d.setHours(0, 0, 0, 0)
   return toDateKey(d)
 }
+
+// Generate the last 7 days of seeded mockup data
+const MOCK_DAILY = {};
+let totalMockPoints = 0;
+const today = new Date();
+const mockPointSequence = [30, 80, 50, 110, 45, 130, 95];
+
+for (let i = 6; i >= 0; i--) {
+  const d = new Date(today);
+  d.setDate(d.getDate() - i);
+  const dateKey = toDateKey(d);
+  const pts = mockPointSequence[6 - i];
+  MOCK_DAILY[dateKey] = { points: pts, recipesCooked: 1, wasteItems: 0, savings: 3.5 };
+  totalMockPoints += pts;
+}
+
+const DEFAULT_STATE = {
+  totalPoints: totalMockPoints,
+  savingsTotal: 15.5,
+  wasteItemsRescued: 4,
+  recipesCooked: 7,
+  recipeHistory: [],
+  daily: MOCK_DAILY,
+  weekly: {
+    [getWeekStartKey(today)]: { points: totalMockPoints, recipesCooked: 7, wasteItems: 0, savings: 15.5 }
+  },
+  streak: {
+    current: 4,
+    best: 7,
+    lastCookDate: toDateKey(today),
+  },
+  badges: ['First Cook', '3-Day Streak', 'Home Chef'],
+  claimedQuestIds: [],
+  events: [],
+}
+
+
 
 function mergeState(raw) {
   return {
