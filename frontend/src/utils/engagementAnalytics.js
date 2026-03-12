@@ -172,10 +172,17 @@ function refreshBadges(state) {
 
   if (state.recipesCooked >= 1) next.add('First Cook')
   if (state.recipesCooked >= 10) next.add('Home Chef')
+  if (state.recipesCooked >= 25) next.add('Recipe Explorer')
   if (state.wasteItemsRescued >= 10) next.add('Waste Warrior')
+  if (state.wasteItemsRescued >= 25) next.add('Rescue Hero')
   if (state.savingsTotal >= 25) next.add('Savings Starter')
+  if (state.savingsTotal >= 50) next.add('Savings Pro')
+  if (state.totalPoints >= 500) next.add('Point Master')
   if (state.streak.best >= 3) next.add('3-Day Streak')
   if (state.streak.best >= 7) next.add('7-Day Streak')
+  if (state.streak.best >= 14) next.add('14-Day Streak')
+  const questsClaimed = Array.isArray(state.claimedQuestIds) ? state.claimedQuestIds.length : 0
+  if (questsClaimed >= 5) next.add('Quest Crusher')
 
   state.badges = Array.from(next)
 }
