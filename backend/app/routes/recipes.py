@@ -254,9 +254,8 @@ async def list_recipes(
         else:
             score = 0
 
-        needs_can_make = sort_key in {"relevance", "expiring"}
         can_make = False
-        if needs_can_make and ingredients:
+        if ingredients:
             can_make = all(_ingredient_matches(ing, fridge_names) for ing in ingredients)
 
         needs_expiring = sort_key == "expiring"
@@ -291,11 +290,29 @@ async def list_recipes(
         )
 
     if sort_key == "cook_time":
-        results.sort(key=lambda r: (r.get("cook_minutes", 0), -r.get("_score", 0)))
+        results.sort(
+            key=lambda r: (
+                0 if r.get("_can_make") else 1,
+                r.get("cook_minutes", 0),
+                -r.get("_score", 0),
+            )
+        )
     elif sort_key == "rating":
-        results.sort(key=lambda r: (r.get("rating", 0), r.get("_score", 0)), reverse=True)
+        results.sort(
+            key=lambda r: (
+                0 if r.get("_can_make") else 1,
+                -(r.get("rating", 0) or 0),
+                -r.get("_score", 0),
+            ),
+        )
     elif sort_key == "vote_count":
-        results.sort(key=lambda r: (r.get("vote_count", 0), r.get("_score", 0)), reverse=True)
+        results.sort(
+            key=lambda r: (
+                0 if r.get("_can_make") else 1,
+                -(r.get("vote_count", 0) or 0),
+                -r.get("_score", 0),
+            ),
+        )
     elif sort_key == "expiring":
         results.sort(
             key=lambda r: (
